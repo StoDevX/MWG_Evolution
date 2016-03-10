@@ -1,25 +1,35 @@
+## MWG Evolution
+
 This is the final project for our Mobile Web Graphics course (Fall 2014). It serves as an investigation of genetic algorithms and very, very simple neural networks.
 
 We "evolve" a car-like creature with a scorpion-like tail on the basis of the amount of force it can apply to a wall over a given time period (by default 20 seconds in the most up-to-date demo). The intent is to produce creatures that are better at attacking the wall. Each creature has a body (represented by Box2D fixtures) and a mind (constructed as a very small neural network) to control different body parts. The mind is not a conventional neural network in that it is never trained, but it does co-evolve with the body generation-to-generation. In this way the operation of the mind can improve.
 
-Current parameters that we evolve:
+### What it looks like
 
-Torso:
+![demo](http://i.imgur.com/YmHlezC.png)
+
+### Current parameters that we evolve
+
+**Torso:**
+
 * The width of the torso.
 * The height of the torso.
 * The density of the torso.
 * The friction of the torso.
 
-Wheels:
+**Wheels:**
+
 * The radius of the wheel.
 * The density of the wheel.
 * The friction of the wheel.
 
-Wheel Joints:
+**Wheel Joints:**
+
 * The speed of the motor.
 * The maximum torque of the motor.
 
-Tail:
+**Tail:**
+
 * The number of vertebrae in the tail.
 * The width of the root vertebra.
 * The height of the root vertebra.
@@ -31,7 +41,8 @@ Tail:
 * The factor by which the density of each vertebra changes along the tail from root to end.
 * The factor by which the torque of each vertebra changes along the tail from root to end.
 
-Mind:
+**Mind:**
+
 * The distance threshold at which the creature will begin attacking the wall. This distance is measured by the creature's Eye, then sent to its TailNeuron during the "thinking" step of the simulation.
 * The amount of time the creature spends in each position of its movement pattern during the attacking phase.
 * The maximum speed, by phase (at rest or attacking), that the creature will try to move the joints on its tail. The actual speed that it tries to move a given tail joint depends on the difference between that joint's angle and the angle that that joint is assigned for the current position in that creature's movement pattern.
@@ -39,7 +50,7 @@ Mind:
 
 ---
 
-A few other items to note:
+### A few other items to note
 
 * The code is in the "www" folder.
 
