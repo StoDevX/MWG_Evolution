@@ -1,13 +1,13 @@
-import Box2D from './lib/box2d.js'
+import Box2D from '../lib/box2d.js'
 
-import PIXI from './lib/pixi.js'
-import Utils from './lib/Utils.js'
+import PIXI from '../lib/pixi.js'
+import Utils from '../lib/Utils.js'
 
-import Mind from './app/Mind.js'
-import Body from './app/Body.js'
-import Creature from './app/Creature.js'
-import Wall from './app/Wall.js'
-import Generator from './app/Generation/Generator.js'
+import Mind from '../app/Mind.js'
+import Body from '../app/Body.js'
+import Creature from '../app/Creature.js'
+import Wall from '../app/Wall.js'
+import Generator from '../app/Generation/Generator.js'
 
 // Variable Simplification
 let b2Vec2 = Box2D.Common.Math.b2Vec2
