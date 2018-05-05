@@ -149,4 +149,4 @@ var TailNeuron = Neuron.extend({
   }
 });
 
-export default TailNeuron
+export {TailNeuron}

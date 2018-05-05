@@ -62,4 +62,4 @@ var AfferentJunction = Class.extend({
 
 });
 
-export default AfferentJunction
+export {AfferentJunction}

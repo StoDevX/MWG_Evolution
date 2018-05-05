@@ -1,17 +1,15 @@
-let Class = window.Class
-
 // ----------------------------------------------------------------------------
 // Brain: Access and manipulation of the input and output
 //        leaves of the neural network.
 // ----------------------------------------------------------------------------
 
-var Brain = Class.extend({
-  init: function (afferent_junctions, efferent_junctions) {
+export class Brain {
+  init(afferent_junctions, efferent_junctions) {
     this.afferent_junctions = afferent_junctions || [];
     this.efferent_junctions = efferent_junctions || [];
-
   }
-, think: function () {
+
+  think() {
     // Start propagating by triggering senses (afferent junctions).
     this.afferent_junctions.forEach(function (afferent) {
       afferent.impulse();
@@ -23,6 +21,4 @@ var Brain = Class.extend({
       efferent._impulse(); // _impulse also clears the impulse queue
     });
   }
-});
-
-export default Brain
+}

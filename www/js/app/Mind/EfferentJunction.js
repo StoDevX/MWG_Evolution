@@ -47,4 +47,4 @@ var EfferentJunction = Class.extend({
   }
 });
 
-export default EfferentJunction
+export {EfferentJunction}

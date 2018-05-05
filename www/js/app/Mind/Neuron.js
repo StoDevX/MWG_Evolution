@@ -77,4 +77,4 @@ var Neuron = Class.extend({
 
 });
 
-export default Neuron
+export {Neuron}

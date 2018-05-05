@@ -1,8 +1,8 @@
-import Brain from "./Mind/Brain.js"
-import Neuron from "./Mind/Neuron.js"
-import AfferentJunction from "./Mind/AfferentJunction.js"
-import EfferentJunction from "./Mind/EfferentJunction.js"
-import TailNeuron from "./Mind/TailNeuron.js"
+import {Brain} from "./Mind/Brain.js"
+import {Neuron} from "./Mind/Neuron.js"
+import {AfferentJunction} from "./Mind/AfferentJunction.js"
+import {EfferentJunction} from "./Mind/EfferentJunction.js"
+import {TailNeuron} from "./Mind/TailNeuron.js"
 
 var Mind              = {};
 Mind.Brain            = Brain;
