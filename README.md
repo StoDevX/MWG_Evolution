@@ -52,9 +52,9 @@ We "evolve" a car-like creature with a scorpion-like tail on the basis of the am
 
 ### A few other items to note
 
-* The code is in the "www" folder.
+* The code is in the root folder.
 
-* Open "FullScreenEvolution.html" for the most up to date demo. You need to press the "Play" button to start the simulation. The "Evolve" button can be used to trigger evolution prematurely and the third button can be used to toggle time acceleration.
+* Open `index.html` for the most up to date demo. You need to press the "Play" button to start the simulation. The "Evolve" button can be used to trigger evolution prematurely and the third button can be used to toggle time acceleration.
 
 * Most documentation is inline with code, but some of it might be just a tiny bit out of date since we haven't gone through with a fine-tooth comb and updated it after our mad rush the night before our demo day. The demo code is messy. Don your hazmat suit before entering.
 
