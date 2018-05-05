@@ -4,9 +4,11 @@
 // ----------------------------------------------------------------------------
 
 export class Brain {
-	init(afferent_junctions, efferent_junctions) {
+	constructor(afferent_junctions, efferent_junctions) {
 		this.afferent_junctions = afferent_junctions || []
 		this.efferent_junctions = efferent_junctions || []
+
+		this.think = this.think.bind(this)
 	}
 
 	think() {
