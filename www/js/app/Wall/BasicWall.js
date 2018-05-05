@@ -5,97 +5,106 @@ import PIXI from '../../lib/pixi.js'
 import BodyPart from '../Body/BodyPart.js'
 import Mind from '../Mind.js'
 
-
 var BasicWall = Class.extend({
-  init: function (initialX, initialY, width, height) {
-    this.name = "BasicWall";
+	init: function(initialX, initialY, width, height) {
+		this.name = 'BasicWall'
 
-    this.initialX = initialX;
-    this.initialY = initialY;
-    this.width    = width;
-    this.height   = height;
+		this.initialX = initialX
+		this.initialY = initialY
+		this.width = width
+		this.height = height
 
-    this.world = null;
-    this.body = null;
+		this.world = null
+		this.body = null
 
-    this.stage = null;
-    this.graphics = null;
+		this.stage = null
+		this.graphics = null
 
-    this.wallCollision = new Box2D.Dynamics.b2ContactListener;
-    this.totalForce=0;
-    /*this.wallCollision.BeginContact = function(contact) {
+		this.wallCollision = new Box2D.Dynamics.b2ContactListener()
+		this.totalForce = 0
+		/*this.wallCollision.BeginContact = function(contact) {
       if (contact.GetFixtureA().GetBody()==this.body)
           console.log("Wall is Fixture A")
       if (contact.GetFixtureB().GetBody()==this.body)
           console.log("Wall is Fixture B")
 
     };*/
-    //this.hasCollided = false;
-    this.wallCollision.PostSolve = function(contact, impulse) {
-      if ((contact.GetFixtureA().GetBody()==this.body) || (contact.GetFixtureB().GetBody()==this.body)){
-          var x = Math.abs(impulse.normalImpulses[0]);
-          var y = Math.abs(impulse.tangentImpulses[0]);
-          var z = Math.sqrt(x*x+y*y);
-          if (z>4){
-              this.totalForce+=z;//create cutoff for tiny amounts of force!
-              //console.log(this.totalForce);
-          }
-    }}.bind(this);
+		//this.hasCollided = false;
+		this.wallCollision.PostSolve = function(contact, impulse) {
+			if (
+				contact.GetFixtureA().GetBody() == this.body ||
+				contact.GetFixtureB().GetBody() == this.body
+			) {
+				var x = Math.abs(impulse.normalImpulses[0])
+				var y = Math.abs(impulse.tangentImpulses[0])
+				var z = Math.sqrt(x * x + y * y)
+				if (z > 4) {
+					this.totalForce += z //create cutoff for tiny amounts of force!
+					//console.log(this.totalForce);
+				}
+			}
+		}.bind(this)
+	},
+	addToWorld: function(world) {
+		if (this.world != null) {
+			return
+		}
+		this.world = world
 
+		var bodyDef = new Box2D.Dynamics.b2BodyDef()
+		bodyDef.type = Box2D.Dynamics.b2Body.b2_staticBody
 
-  }
-, addToWorld: function (world) {
-    if (this.world != null) { return; }
-    this.world = world;
+		var polyFixture = new Box2D.Dynamics.b2FixtureDef()
+		polyFixture.shape = new Box2D.Collision.Shapes.b2PolygonShape()
+		polyFixture.density = 1
+		polyFixture.friction = 0.01
+		polyFixture.restitution = 0.05
+		polyFixture.shape.SetAsBox(this.width / 2, this.height / 2)
+		polyFixture.filter.groupIndex = this.groupIndex
 
-    var bodyDef = new Box2D.Dynamics.b2BodyDef();
-    bodyDef.type = Box2D.Dynamics.b2Body.b2_staticBody;
+		var body = world.CreateBody(bodyDef)
+		body.CreateFixture(polyFixture)
 
-    var polyFixture = new Box2D.Dynamics.b2FixtureDef();
-    polyFixture.shape = new Box2D.Collision.Shapes.b2PolygonShape();
-    polyFixture.density = 1;
-    polyFixture.friction = 0.01;
-    polyFixture.restitution = .05;
-    polyFixture.shape.SetAsBox(this.width/2, this.height/2);
-    polyFixture.filter.groupIndex = this.groupIndex;
+		var pos = new Box2D.Common.Math.b2Vec2(this.initialX, this.initialY)
+		body.SetPosition(pos)
+		body.SetAngle(this.initialAngle)
 
-    var body = world.CreateBody(bodyDef);
-    body.CreateFixture(polyFixture);
+		this.body = body
+		this.body.mobileWebGraphicsName = 'BasicWall'
 
-    var pos = new Box2D.Common.Math.b2Vec2(this.initialX, this.initialY);
-    body.SetPosition(pos);
-    body.SetAngle(this.initialAngle);
+		world.SetContactListener(this.wallCollision)
+	},
+	addToStage: function(stage, METER) {
+		if (this.stage != null) {
+			return
+		}
+		this.stage = stage
 
-    this.body = body;
-    this.body.mobileWebGraphicsName = "BasicWall";
+		var graphics = new PIXI.Graphics()
 
-    world.SetContactListener(this.wallCollision);
+		// Fill
+		graphics.beginFill(0x809696, 1)
+		graphics.drawRect(0, 0, this.width * METER, this.height * METER)
+		graphics.endFill()
 
-  }
-, addToStage: function (stage, METER) {
-    if (this.stage != null) { return; }
-    this.stage = stage;
+		// Center Pivot
+		graphics.pivot = new PIXI.Point(
+			this.width * METER / 2,
+			this.height * METER / 2
+		)
 
-    var graphics = new PIXI.Graphics();
+		this.graphics = graphics
 
-    // Fill
-    graphics.beginFill(0x809696, 1);
-    graphics.drawRect(0, 0, this.width * METER, this.height * METER);
-    graphics.endFill();
-
-    // Center Pivot
-    graphics.pivot = new PIXI.Point(this.width * METER/2, this.height * METER/2);
-
-    this.graphics = graphics;
-
-    stage.addChild(graphics);
-  }
-, data: function () {
-    return [{
-      body: this.body
-    , graphics: this.graphics
-    }];
-  }
-});
+		stage.addChild(graphics)
+	},
+	data: function() {
+		return [
+			{
+				body: this.body,
+				graphics: this.graphics,
+			},
+		]
+	},
+})
 
 export default BasicWall

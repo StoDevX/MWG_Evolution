@@ -52,29 +52,29 @@ Proposed interface:
 
  */
 var Neuron = Class.extend({
-  init: function (dendrites, axons) {
-    this.dendrites = dendrites || [];
-    this.axons = axons || [];
+	init: function(dendrites, axons) {
+		this.dendrites = dendrites || []
+		this.axons = axons || []
 
-    // Bind each dendrite's this to the neuron object
-    for (var i = 0; i < dendrites.length; ++i) {
-      dendrites[i] = dendrites[i].bind(this);
-    }
-  }
+		// Bind each dendrite's this to the neuron object
+		for (var i = 0; i < dendrites.length; ++i) {
+			dendrites[i] = dendrites[i].bind(this)
+		}
+	},
 
-, impulse: function (axon_index, value) {
-    if (this.axons[axon_index] instanceof Array) { // instanceof is the fastest type checking operation
-      this.axons[axon_index].forEach(function (dendrite) {
-        dendrite(value);
-      });
-    }
-  }
-, synapse: function (axon_index, dendrite, dendrite_owner) {
-    if (this.axons[axon_index] instanceof Array) {
-      this.axons[axon_index].push(dendrite.bind(dendrite_owner));
-    }
-}
+	impulse: function(axon_index, value) {
+		if (this.axons[axon_index] instanceof Array) {
+			// instanceof is the fastest type checking operation
+			this.axons[axon_index].forEach(function(dendrite) {
+				dendrite(value)
+			})
+		}
+	},
+	synapse: function(axon_index, dendrite, dendrite_owner) {
+		if (this.axons[axon_index] instanceof Array) {
+			this.axons[axon_index].push(dendrite.bind(dendrite_owner))
+		}
+	},
+})
 
-});
-
-export {Neuron}
+export { Neuron }

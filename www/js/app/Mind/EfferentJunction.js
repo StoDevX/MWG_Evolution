@@ -33,18 +33,18 @@ let Class = window.Class
 
 */
 var EfferentJunction = Class.extend({
-  init: function (bodyPart, impulse) {
-    this.bodyPart = bodyPart;
-    this.impulse = impulse || function () {};
-    this.impulseQueue = [];
-  }
-, _impulse: function () {
-    this.impulse();
-    this.impulseQueue = []; // clear impulse queue
-  }
-, pushImpulse: function (value) {
-    this.impulseQueue.push(value);
-  }
-});
+	init: function(bodyPart, impulse) {
+		this.bodyPart = bodyPart
+		this.impulse = impulse || function() {}
+		this.impulseQueue = []
+	},
+	_impulse: function() {
+		this.impulse()
+		this.impulseQueue = [] // clear impulse queue
+	},
+	pushImpulse: function(value) {
+		this.impulseQueue.push(value)
+	},
+})
 
-export {EfferentJunction}
+export { EfferentJunction }

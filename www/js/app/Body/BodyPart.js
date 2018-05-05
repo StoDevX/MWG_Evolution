@@ -1,6 +1,5 @@
 let Class = window.Class
 
-
 // ----------------------------------------------------------------------------
 // BodyPart:
 // ----------------------------------------------------------------------------
@@ -167,28 +166,30 @@ let Class = window.Class
 */
 
 var BodyPart = Class.extend({
- init: function (attachments, junctions, groupIndex, ID) {
-   this.attachments = attachments || [];
-   this.junctions = junctions || [];
-   if (typeof(groupIndex) === 'undefined') { groupIndex = 0; }
+	init: function(attachments, junctions, groupIndex, ID) {
+		this.attachments = attachments || []
+		this.junctions = junctions || []
+		if (typeof groupIndex === 'undefined') {
+			groupIndex = 0
+		}
 
-   this.ID = ID;
-   this.initialX = null;
-   this.initialY = null;
-   this.initialAngle = 0;
+		this.ID = ID
+		this.initialX = null
+		this.initialY = null
+		this.initialAngle = 0
 
-   this.groupIndex = groupIndex;
+		this.groupIndex = groupIndex
 
-   this.world = null;
-   this.stage = null;
+		this.world = null
+		this.stage = null
 
-   this.name = "BodyPart";
- }
-, attach: function (this_attach_index, other_bodyPart, other_attach_index) {
-   var local = this.attachments[this_attach_index];
-   var other = other_bodyPart.attachments[other_attach_index];
+		this.name = 'BodyPart'
+	},
+	attach: function(this_attach_index, other_bodyPart, other_attach_index) {
+		var local = this.attachments[this_attach_index]
+		var other = other_bodyPart.attachments[other_attach_index]
 
-   /*
+		/*
       More complex body parts can set up body part forwarding for
       each attachment point. To set up body part forwarding, add a
       bodyPartForwarding array as a property of your custom
@@ -207,20 +208,26 @@ var BodyPart = Class.extend({
       an argument.
    */
 
-   var localForwards = this.bodyPartForwarding || [];
-   var otherForwards = other_bodyPart.bodyPartForwarding || [];
+		var localForwards = this.bodyPartForwarding || []
+		var otherForwards = other_bodyPart.bodyPartForwarding || []
 
-   // Set body part references.
-   local.bodyPart = otherForwards[other_attach_index] || other_bodyPart;
-   other.bodyPart = localForwards[this_attach_index] || this;
+		// Set body part references.
+		local.bodyPart = otherForwards[other_attach_index] || other_bodyPart
+		other.bodyPart = localForwards[this_attach_index] || this
 
-   // Set complement references.
-   local.complement = other;
-   other.complement = local;
- }
-, addToWorld: function (world) { throw "Abstract method on superclass requires override."; }
-, addToStage: function (stage, METER) { throw "Abstract method on superclass requires override."; }
-, data: function () { throw "Abstract method on superclass requires override."; }
-});
+		// Set complement references.
+		local.complement = other
+		other.complement = local
+	},
+	addToWorld: function(world) {
+		throw 'Abstract method on superclass requires override.'
+	},
+	addToStage: function(stage, METER) {
+		throw 'Abstract method on superclass requires override.'
+	},
+	data: function() {
+		throw 'Abstract method on superclass requires override.'
+	},
+})
 
-export default BodyPart;
+export default BodyPart

@@ -27,201 +27,209 @@ let b2CircleShape = Box2D.Collision.Shapes.b2CircleShape
 let b2DebugDraw = Box2D.Dynamics.b2DebugDraw
 let b2MouseJointDef = Box2D.Dynamics.Joints.b2MouseJointDef
 
-
 // Create World (In the simulation, we will create a new world for each creature)
-var world = new b2World( new b2Vec2(0, 10), true);
+var world = new b2World(new b2Vec2(0, 10), true)
 
+var fixDef = new b2FixtureDef()
+fixDef.density = 1.0
+fixDef.friction = 0.5
+fixDef.restitution = 0.2
 
-var fixDef = new b2FixtureDef;
-fixDef.density = 1.0;
-fixDef.friction = 0.5;
-fixDef.restitution = 0.2;
-
-var bodyDef = new b2BodyDef;
+var bodyDef = new b2BodyDef()
 
 //create ground
-bodyDef.type = b2Body.b2_staticBody;
-fixDef.shape = new b2PolygonShape;
-fixDef.shape.SetAsBox(20, 2);
-bodyDef.position.Set(10, 400 / 30 + 1.8);
-world.CreateBody(bodyDef).CreateFixture(fixDef);
-bodyDef.position.Set(10, -1.8);
-world.CreateBody(bodyDef).CreateFixture(fixDef);
-fixDef.shape.SetAsBox(2, 14);
-bodyDef.position.Set(-1.8, 13);
-world.CreateBody(bodyDef).CreateFixture(fixDef);
-bodyDef.position.Set(21.8, 13);
-world.CreateBody(bodyDef).CreateFixture(fixDef);
-
+bodyDef.type = b2Body.b2_staticBody
+fixDef.shape = new b2PolygonShape()
+fixDef.shape.SetAsBox(20, 2)
+bodyDef.position.Set(10, 400 / 30 + 1.8)
+world.CreateBody(bodyDef).CreateFixture(fixDef)
+bodyDef.position.Set(10, -1.8)
+world.CreateBody(bodyDef).CreateFixture(fixDef)
+fixDef.shape.SetAsBox(2, 14)
+bodyDef.position.Set(-1.8, 13)
+world.CreateBody(bodyDef).CreateFixture(fixDef)
+bodyDef.position.Set(21.8, 13)
+world.CreateBody(bodyDef).CreateFixture(fixDef)
 
 // --------------- Assert: Basic World Is Initialized -------------------
 
-
 // Add test objects
-var testWall = new Wall.BasicWall(18, 7, 3, 15);
-testWall.addToWorld(world);
+var testWall = new Wall.BasicWall(18, 7, 3, 15)
+testWall.addToWorld(world)
 
-var testCreature = new Creature.Car(4, 10);
-testCreature.addToWorld(world);
+var testCreature = new Creature.Car(4, 10)
+testCreature.addToWorld(world)
 
 //---------------------------------------------------
 
 function debugRendererInit() {
+	//setup debug draw
+	var debugDraw = new b2DebugDraw()
+	debugDraw.SetSprite(document.getElementById('canvas').getContext('2d'))
+	debugDraw.SetDrawScale(30.0)
+	debugDraw.SetFillAlpha(0.5)
+	debugDraw.SetLineThickness(1.0)
+	debugDraw.SetFlags(
+		b2DebugDraw.e_shapeBit |
+			b2DebugDraw.e_jointBit |
+			b2DebugDraw.e_centerOfMassBit
+	)
+	world.SetDebugDraw(debugDraw)
 
-    //setup debug draw
-    var debugDraw = new b2DebugDraw();
-    debugDraw.SetSprite(document.getElementById("canvas").getContext("2d"));
-    debugDraw.SetDrawScale(30.0);
-    debugDraw.SetFillAlpha(0.5);
-    debugDraw.SetLineThickness(1.0);
-    debugDraw.SetFlags(b2DebugDraw.e_shapeBit | b2DebugDraw.e_jointBit | b2DebugDraw.e_centerOfMassBit);
-    world.SetDebugDraw(debugDraw);
+	window.setInterval(update, 1000 / 60)
 
-    window.setInterval(update, 1000 / 60);
+	//mouse
 
-    //mouse
+	var mouseX, mouseY, mousePVec, isMouseDown, selectedBody, mouseJoint
+	var canvasPosition = getElementPosition(document.getElementById('canvas'))
 
-    var mouseX, mouseY, mousePVec, isMouseDown, selectedBody, mouseJoint;
-    var canvasPosition = getElementPosition(document.getElementById("canvas"));
+	document.addEventListener(
+		'mousedown',
+		function(e) {
+			isMouseDown = true
+			handleMouseMove(e)
+			document.addEventListener('mousemove', handleMouseMove, true)
+		},
+		true
+	)
 
-    document.addEventListener("mousedown", function(e) {
-         isMouseDown = true;
-         handleMouseMove(e);
-         document.addEventListener("mousemove", handleMouseMove, true);
-    }, true);
+	document.addEventListener(
+		'mouseup',
+		function() {
+			document.removeEventListener('mousemove', handleMouseMove, true)
+			isMouseDown = false
+			mouseX = undefined
+			mouseY = undefined
+		},
+		true
+	)
 
-    document.addEventListener("mouseup", function() {
-         document.removeEventListener("mousemove", handleMouseMove, true);
-         isMouseDown = false;
-         mouseX = undefined;
-         mouseY = undefined;
-    }, true);
+	function handleMouseMove(e) {
+		mouseX = (e.clientX - canvasPosition.x) / 30
+		mouseY = (e.clientY - canvasPosition.y) / 30
+	}
 
-    function handleMouseMove(e) {
-         mouseX = (e.clientX - canvasPosition.x) / 30;
-         mouseY = (e.clientY - canvasPosition.y) / 30;
-    };
+	function getBodyAtMouse() {
+		mousePVec = new b2Vec2(mouseX, mouseY)
+		var aabb = new b2AABB()
+		aabb.lowerBound.Set(mouseX - 0.001, mouseY - 0.001)
+		aabb.upperBound.Set(mouseX + 0.001, mouseY + 0.001)
 
-    function getBodyAtMouse() {
-         mousePVec = new b2Vec2(mouseX, mouseY);
-         var aabb = new b2AABB();
-         aabb.lowerBound.Set(mouseX - 0.001, mouseY - 0.001);
-         aabb.upperBound.Set(mouseX + 0.001, mouseY + 0.001);
+		// Query the world for overlapping shapes.
 
-         // Query the world for overlapping shapes.
+		selectedBody = null
+		world.QueryAABB(getBodyCB, aabb)
+		return selectedBody
+	}
 
-         selectedBody = null;
-         world.QueryAABB(getBodyCB, aabb);
-         return selectedBody;
-    }
+	function getBodyCB(fixture) {
+		if (fixture.GetBody().GetType() != b2Body.b2_staticBody) {
+			if (
+				fixture
+					.GetShape()
+					.TestPoint(fixture.GetBody().GetTransform(), mousePVec)
+			) {
+				selectedBody = fixture.GetBody()
+				return false
+			}
+		}
+		return true
+	}
 
-    function getBodyCB(fixture) {
-         if(fixture.GetBody().GetType() != b2Body.b2_staticBody) {
-                if(fixture.GetShape().TestPoint(fixture.GetBody().GetTransform(), mousePVec)) {
-                     selectedBody = fixture.GetBody();
-                     return false;
-                }
-         }
-         return true;
-    }
+	//update
 
-    //update
+	function update() {
+		if (isMouseDown && !mouseJoint) {
+			var body = getBodyAtMouse()
+			if (body) {
+				var md = new b2MouseJointDef()
+				md.bodyA = world.GetGroundBody()
+				md.bodyB = body
+				md.target.Set(mouseX, mouseY)
+				md.collideConnected = true
+				md.maxForce = 300.0 * body.GetMass()
+				mouseJoint = world.CreateJoint(md)
+				body.SetAwake(true)
+			}
+		}
 
-    function update() {
+		if (mouseJoint) {
+			if (isMouseDown) {
+				mouseJoint.SetTarget(new b2Vec2(mouseX, mouseY))
+			} else {
+				world.DestroyJoint(mouseJoint)
+				mouseJoint = null
+			}
+		}
+	}
 
-         if(isMouseDown && (!mouseJoint)) {
-                var body = getBodyAtMouse();
-                if(body) {
-                     var md = new b2MouseJointDef();
-                     md.bodyA = world.GetGroundBody();
-                     md.bodyB = body;
-                     md.target.Set(mouseX, mouseY);
-                     md.collideConnected = true;
-                     md.maxForce = 300.0 * body.GetMass();
-                     mouseJoint = world.CreateJoint(md);
-                     body.SetAwake(true);
-                }
-         }
+	//helpers
 
-         if(mouseJoint) {
-                if(isMouseDown) {
-                     mouseJoint.SetTarget(new b2Vec2(mouseX, mouseY));
-                } else {
-                     world.DestroyJoint(mouseJoint);
-                     mouseJoint = null;
-                }
-         }
+	//http://js-tut.aardon.de/js-tut/tutorial/position.html
+	function getElementPosition(element) {
+		var elem = element,
+			tagname = '',
+			x = 0,
+			y = 0
 
-    };
+		while (typeof elem == 'object' && typeof elem.tagName != 'undefined') {
+			y += elem.offsetTop
+			x += elem.offsetLeft
+			tagname = elem.tagName.toUpperCase()
 
-    //helpers
+			if (tagname == 'BODY') elem = 0
 
-    //http://js-tut.aardon.de/js-tut/tutorial/position.html
-    function getElementPosition(element) {
-         var elem=element, tagname="", x=0, y=0;
+			if (typeof elem == 'object') {
+				if (typeof elem.offsetParent == 'object') elem = elem.offsetParent
+			}
+		}
 
-         while((typeof(elem) == "object") && (typeof(elem.tagName) != "undefined")) {
-                y += elem.offsetTop;
-                x += elem.offsetLeft;
-                tagname = elem.tagName.toUpperCase();
-
-                if(tagname == "BODY")
-                     elem=0;
-
-                if(typeof(elem) == "object") {
-                     if(typeof(elem.offsetParent) == "object")
-                            elem = elem.offsetParent;
-                }
-         }
-
-         return {x: x, y: y};
-    }
-};
-
+		return { x: x, y: y }
+	}
+}
 
 //---------------------------------------------------
 
 // PIXI Setup
 
 function pixiRendererInit() {
-    // PIXI Init stuff
-    var METER = 30; // 30px per meter
-    var stage = new PIXI.Stage(0x66FF99);
-    var renderer = PIXI.autoDetectRenderer(600, 400);
-    document.body.appendChild(renderer.view);
+	// PIXI Init stuff
+	var METER = 30 // 30px per meter
+	var stage = new PIXI.Stage(0x66ff99)
+	var renderer = PIXI.autoDetectRenderer(600, 400)
+	document.body.appendChild(renderer.view)
 
-    testCreature.addToStage(stage, METER);
-    testWall.addToStage(stage, METER);
+	testCreature.addToStage(stage, METER)
+	testWall.addToStage(stage, METER)
 
-    var entityData = testCreature.bodyPartData().concat( testWall.data() );
+	var entityData = testCreature.bodyPartData().concat(testWall.data())
 
-    requestAnimFrame( animate );
+	requestAnimFrame(animate)
 
-    console.log(testCreature);
-    console.log(entityData);
+	console.log(testCreature)
+	console.log(entityData)
 
-    function animate() {
-        requestAnimFrame( animate );
+	function animate() {
+		requestAnimFrame(animate)
 
-        world.Step(1 / 60, 10, 10);
-        testCreature.brain.think();
+		world.Step(1 / 60, 10, 10)
+		testCreature.brain.think()
 
-        world.DrawDebugData();
-        entityData.forEach( function (datum) {
-            if (datum.body != null && datum.graphics != null) {
-                var pos = datum.body.GetPosition();
-                datum.graphics.position.x = pos.x * METER;
-                datum.graphics.position.y = pos.y * METER;
-                datum.graphics.rotation = datum.body.GetAngle();
-            }
-        });
+		world.DrawDebugData()
+		entityData.forEach(function(datum) {
+			if (datum.body != null && datum.graphics != null) {
+				var pos = datum.body.GetPosition()
+				datum.graphics.position.x = pos.x * METER
+				datum.graphics.position.y = pos.y * METER
+				datum.graphics.rotation = datum.body.GetAngle()
+			}
+		})
 
-        renderer.render( stage );
+		renderer.render(stage)
 
-        world.ClearForces();
-    }
-
+		world.ClearForces()
+	}
 }
 
-debugRendererInit();
-pixiRendererInit();
+debugRendererInit()
+pixiRendererInit()

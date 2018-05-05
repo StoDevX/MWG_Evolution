@@ -32,34 +32,37 @@ let Class = window.Class
 
 */
 var AfferentJunction = Class.extend({
-  init: function (bodyPart, sense, dendrites) {
-    this.bodyPart = bodyPart;
-    this.dendrites = dendrites || [];
-    this.sense = sense || function () { return null; };
-  }
-, impulse: function () {
-    var datum = this.sense();
-    this.dendrites.forEach(function (dendrite) {
-      dendrite(datum);
-    });
-  }
-, synapse: function(dendrite, dendrite_owner) {
-    // TODO: The neuron already ensures that the dendrites
-    // are bound to it when it is constructed, do we really
-    // need to rebind them to the same thing here?
-    // Or perhaps we wish to have the flexibility of changing
-    // the dendrite owner if we want (which wouldn't affect the
-    // original dendrite anyway). There is also the matter of memory
-    // efficiency to consider here, as .bind() returns a new function
-    // every time it is called.
-    // Further note that we may need this because there are some
-    // cases where dendrites are generated after construction,
-    // like the TailNeuron for instance. We should decide whether
-    // to enforce this here or leave the responsibility to whoever
-    // programs a neuron.
-    this.dendrites.push(dendrite.bind(dendrite_owner));
-  }
+	init: function(bodyPart, sense, dendrites) {
+		this.bodyPart = bodyPart
+		this.dendrites = dendrites || []
+		this.sense =
+			sense ||
+			function() {
+				return null
+			}
+	},
+	impulse: function() {
+		var datum = this.sense()
+		this.dendrites.forEach(function(dendrite) {
+			dendrite(datum)
+		})
+	},
+	synapse: function(dendrite, dendrite_owner) {
+		// TODO: The neuron already ensures that the dendrites
+		// are bound to it when it is constructed, do we really
+		// need to rebind them to the same thing here?
+		// Or perhaps we wish to have the flexibility of changing
+		// the dendrite owner if we want (which wouldn't affect the
+		// original dendrite anyway). There is also the matter of memory
+		// efficiency to consider here, as .bind() returns a new function
+		// every time it is called.
+		// Further note that we may need this because there are some
+		// cases where dendrites are generated after construction,
+		// like the TailNeuron for instance. We should decide whether
+		// to enforce this here or leave the responsibility to whoever
+		// programs a neuron.
+		this.dendrites.push(dendrite.bind(dendrite_owner))
+	},
+})
 
-});
-
-export {AfferentJunction}
+export { AfferentJunction }
