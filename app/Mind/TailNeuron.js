@@ -1,7 +1,7 @@
 import Box2D from '../../lib/box2d.js'
 import PIXI from '../../lib/pixi.js'
 import Utils from '../../lib/Utils.js'
-import Neuron from './Neuron.js'
+import { Neuron } from './Neuron.js'
 
 var TailNeuron = Neuron.extend({
 	init: function(data) {
