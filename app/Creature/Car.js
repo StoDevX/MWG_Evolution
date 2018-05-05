@@ -9,6 +9,10 @@ let b2Vec2 = Box2D.Common.Math.b2Vec2
 
 export default class Car {
 	constructor(initialTorsoX = 10, initialTorsoY = 10) {
+		this.addToWorld = this.addToWorld.bind(this)
+		this.addToStage = this.addToStage.bind(this)
+		this.bodyPartData = this.bodyPartData.bind(this)
+
 		var groupIndex = -2 // never collide wheel and body
 
 		this.torso = new Body.BoxTorso(
