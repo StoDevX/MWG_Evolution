@@ -1,5 +1,6 @@
+import Box2D from './Box2dWeb_dev.js'
+
 // Utility functions
-define(["lib/Box2dWeb_dev"], function (Box2D) {
 
   var Utils = {};
 
@@ -43,5 +44,4 @@ define(["lib/Box2dWeb_dev"], function (Box2D) {
   }
 }
 
-  return Utils;
-});
+export default Utils

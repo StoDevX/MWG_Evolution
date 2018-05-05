@@ -1,11 +1,6 @@
-"use strict";
-define([
-        "app/Wall/BasicWall"
-       ], function (BasicWall) {
+import BasicWall from './Wall/BasicWall.js'
 
-  var Wall = {};
-  Wall.BasicWall = BasicWall;
+var Wall = {};
+Wall.BasicWall = BasicWall;
 
-  return Wall;
-
-});
+export default Wall

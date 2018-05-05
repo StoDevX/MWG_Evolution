@@ -1,13 +1,9 @@
-"use strict";
-define([
-    "app/Creature/Car"
-  , "app/Creature/Scorpion"
+import Car from "./Creature/Car.js"
+import Scorpion from "./Creature/Scorpion.js"
 
-  ], function (Car, Scorpion) {
-  var Creature = {};
+var Creature = {};
 
-  Creature.Car = Car;
-  Creature.Scorpion = Scorpion;
+Creature.Car = Car;
+Creature.Scorpion = Scorpion;
 
-  return Creature;
-});
+export default Creature

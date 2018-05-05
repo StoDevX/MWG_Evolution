@@ -6,8 +6,6 @@
  * Note that this module is not compatible with "use strict";
  */
 
-define([], function() {
-
   /* Simple JavaScript Inheritance
    * By John Resig http://ejohn.org/
    * MIT Licensed.
@@ -72,6 +70,4 @@ define([], function() {
     return Class; // dummy constructor
   };
 
-  return Class; // require.js module object
-
-});
+export default Class
