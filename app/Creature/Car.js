@@ -1,6 +1,6 @@
 let Class = window.Class
 
-import Box2D from '../../lib/box2d.js'
+import Box2D from '../../lib/box2d.min.js'
 import Mind from '../Mind.js'
 import Body from '../Body.js'
 

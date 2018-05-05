@@ -1,6 +1,6 @@
-import Box2D from '../../lib/box2d.js'
+import Box2D from '../../lib/box2d.min.js'
 let Class = window.Class
-import PIXI from '../../lib/pixi.js'
+import PIXI from '../../lib/pixi.min.js'
 
 import BodyPart from '../Body/BodyPart.js'
 import Mind from '../Mind.js'

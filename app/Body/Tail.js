@@ -2,8 +2,8 @@ import BodyPart from './BodyPart.js'
 import Vertebra from './Vertebra.js'
 import RevoluteJoint from './RevoluteJoint.js'
 import { AfferentJunction } from '../Mind/AfferentJunction.js'
-import Box2D from '../../lib/box2d.js'
-import PIXI from '../../lib/pixi.js'
+import Box2D from '../../lib/box2d.min.js'
+import PIXI from '../../lib/pixi.min.js'
 
 var Tail = BodyPart.extend({
 	init: function(data, groupIndex, ID) {

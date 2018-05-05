@@ -1,7 +1,7 @@
 import BodyPart from './BodyPart.js'
 import Utils from '../../lib/Utils.js'
-import Box2D from '../../lib/box2d.js'
-import PIXI from '../../lib/pixi.js'
+import Box2D from '../../lib/box2d.min.js'
+import PIXI from '../../lib/pixi.min.js'
 
 // ----------------------------------------------------------------------------
 // Note: Any body part that attaches to a joint must have a .body
