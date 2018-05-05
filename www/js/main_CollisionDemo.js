@@ -237,7 +237,5 @@ function pixiRendererInit() {
 
 }
 
-$( document ).ready(function(){
-    debugRendererInit();
-    pixiRendererInit();
-});
+debugRendererInit();
+pixiRendererInit();
