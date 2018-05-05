@@ -1,5 +1,6 @@
-import Class from '../../lib/Class.js'
+let Class = window.Class
 
+import Box2D from '../../lib/Box2dWeb_dev.js'
 import Mind from '../Mind.js'
 import Body from '../Body.js'
 

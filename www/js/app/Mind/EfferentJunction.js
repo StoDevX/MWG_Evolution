@@ -1,4 +1,4 @@
-import Class from '../../lib/Class.js'
+let Class = window.Class
 
 /* An efferent junction is a connection from a neuron to a body part.
  * It can be thought of similarly to a neuromuscular junction (a synapse

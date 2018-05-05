@@ -1,5 +1,5 @@
+let Class = window.Class
 import Utils from '../../lib/Utils.js'
-import Class from '../../lib/Class.js'
 
 import Creature from '../Creature.js'
 import Body from '../Body.js'

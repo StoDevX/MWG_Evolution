@@ -1,5 +1,5 @@
 import Box2D from '../../lib/Box2dWeb_dev.js'
-import Class from '../../lib/Class.js'
+let Class = window.Class
 import PIXI from '../../lib/pixi.js'
 
 import BodyPart from '../Body/BodyPart.js'

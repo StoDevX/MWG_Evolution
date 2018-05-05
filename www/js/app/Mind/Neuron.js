@@ -1,4 +1,4 @@
-import Class from '../../lib/Class.js'
+let Class = window.Class
 
 // ----------------------------------------------------------------------------
 // Neuron: A processing center for mental information.

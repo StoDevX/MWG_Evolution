@@ -1,4 +1,4 @@
-import Class from '../../lib/Class.js'
+let Class = window.Class
 
 /* An afferent junction is a connection from a body part to the nervous system.
  * It effectively serves as a sensory receptor.

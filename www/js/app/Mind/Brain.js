@@ -1,4 +1,4 @@
-import Class from '../../lib/Class.js'
+let Class = window.Class
 
 // ----------------------------------------------------------------------------
 // Brain: Access and manipulation of the input and output
