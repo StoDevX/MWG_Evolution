@@ -1,0 +1,26 @@
+{
+  "name": "MWG_Evolution",
+  "version": "1.0.0",
+  "description": "This is the final project for our Mobile Web Graphics course (Fall 2014). It serves as an investigation of genetic algorithms and very, very simple neural networks.",
+  "main": "index.js",
+  "scripts": {
+    "p": "pretty-quick",
+    "pretty": "prettier --write 'app/**/*.js' 'demos/*.js' 'css/*.css' 'lib/{Class,code-dump,Utils}.js'",
+    "start": "serve"
+  },
+  "prettier": {
+    "semi": false,
+    "singleQuote": true,
+    "trailingComma": "es5",
+    "useTabs": true
+  },
+  "repository": "https://github.com/StoDevX/MWG_Evolution",
+  "keywords": [],
+  "license": "MIT",
+  "homepage": "https://stodevx.github.io/MWG_Evolution/demo",
+  "devDependencies": {
+    "prettier": "^1.12.1",
+    "pretty-quick": "^1.4.1",
+    "serve": "^6.5.6"
+  }
+}
