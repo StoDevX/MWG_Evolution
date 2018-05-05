@@ -4,36 +4,36 @@ import PIXI from '../../lib/pixi.min.js'
 import Utils from '../../lib/Utils.js'
 
 /*
-  Default data options:
-  initialX     (default: 4)
-  initialY     (default: 10)
-  initialAngle (default: 0)
-  width        (default: 4)
-  height       (default: 1)
-  density      (default: 1)
-  friction     (default: 0.01)
+	Default data options:
+	initialX     (default: 4)
+	initialY     (default: 10)
+	initialAngle (default: 0)
+	width        (default: 4)
+	height       (default: 1)
+	density      (default: 1)
+	friction     (default: 0.01)
 */
 
 var BoxTorso = BodyPart.extend({
 	init: function(data, groupIndex, ID) {
 		/*
-      The BoxTorso has attachment points at each corner and
-      at the midpoints of each side.
+		The BoxTorso has attachment points at each corner and
+		at the midpoints of each side.
 
-      The attachment indices proceed clockwise from the top-left corner:
-      0: Top-Left Corner
-      1: Top Midpoint
-      2: Top-Right Corner
-      3: Right Midpoint
-      4: Bottom-Right Corner
-      5: Bottom Midpoint
-      6: Bottom-Left Corner
-      7: Left Midpoint
+		The attachment indices proceed clockwise from the top-left corner:
+		0: Top-Left Corner
+		1: Top Midpoint
+		2: Top-Right Corner
+		3: Right Midpoint
+		4: Bottom-Right Corner
+		5: Bottom Midpoint
+		6: Bottom-Left Corner
+		7: Left Midpoint
 
-      As far as I can tell, the Y-Axis points down for a Box2D
-      body's local coordinates.
+		As far as I can tell, the Y-Axis points down for a Box2D
+		body's local coordinates.
 
-    */
+		*/
 
 		// Initialize properties:
 		if (typeof data === 'undefined') {
