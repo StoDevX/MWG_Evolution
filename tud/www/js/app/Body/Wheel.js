@@ -131,6 +131,11 @@ define([ "app/Body/BodyPart"
       graphics.drawCircle(0, 0, HUB_CAP_RADIUS - HUB_CAP_BORDER_WIDTH / 2);
       graphics.endFill();
 
+      // A wheel is built from a fill, a spoke for each spoke count, a tire and a hub
+      // cap, each its own draw call. The wheel never changes once built, only its
+      // position and rotation, so cache it as a texture and let it batch as a sprite.
+      graphics.cacheAsBitmap = true;
+
       this.graphics = graphics;
 
       stage.addChild(graphics);

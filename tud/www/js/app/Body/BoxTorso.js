@@ -337,6 +337,11 @@ define([ "app/Body/BodyPart"
       // Center Pivot
       graphics.pivot = new PIXI.Point(this.props.width * METER/2, this.props.height * METER/2);
 
+      // The mouth, tongue and teeth are bezier curves, which flatten into polygons
+      // large enough that WebGL draws them through the stencil buffer. The face never
+      // changes once built, so cache it as a texture and let it batch as a sprite.
+      graphics.cacheAsBitmap = true;
+
       this.graphics = graphics;
 
       stage.addChild(graphics);

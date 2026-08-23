@@ -128,6 +128,11 @@ define([ "app/Body/BodyPart"
       // Center Pivot
       graphics.pivot = new PIXI.Point(this.props.width * METER/2, this.props.height * METER/2);
 
+      // A vertebra's outline is a seven point polygon, which WebGL draws through
+      // the stencil buffer. The shape never changes once built, only its position
+      // and rotation, so cache it as a texture and let it batch as a sprite.
+      graphics.cacheAsBitmap = true;
+
       this.graphics = graphics;
 
       stage.addChild(graphics);
