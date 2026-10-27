@@ -47,7 +47,7 @@ require([
     var AUTO_MUTATION_RATE = 0.5;
     // Records are kept apart for generations bred automatically and by the player.
     // The auto key predates breeder mode, so it keeps its old name.
-    var RECORD_KEYS        = { auto: "scorpionSmash.record", breeder: "scorpionSmash.record.breeder" };
+    var RECORD_KEYS        = { auto: "mwgEvolution.record", breeder: "mwgEvolution.record.breeder" };
 
     // One color per creature slot. Survivors keep their color across generations.
     var PALETTE = [
@@ -1403,7 +1403,7 @@ require([
         requestAnimFrame(animate);
 
         // Debugging and testing hooks.
-        window.scorpionSmash = {
+        window.mwgEvolution = {
             state: function () {
                 return { generation: generation, level: level, wallHP: wallHP, simTime: simTime
                        , damage: damage.slice(), history: history.slice(), paused: paused };

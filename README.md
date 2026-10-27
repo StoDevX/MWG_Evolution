@@ -54,7 +54,7 @@ We "evolve" a car-like creature with a scorpion-like tail on the basis of the am
 
 * The code is in the "www" folder.
 
-* Open "FullScreenEvolution.html" for the most up to date demo, **Scorpion Smash**. Serve the `www` folder over HTTP (for example `python3 -m http.server` inside `tud/www`), since require.js cannot load modules from `file://` URLs in most browsers. The game plays like this:
+* Open "FullScreenEvolution.html" for the most up to date demo. Serve the `www` folder over HTTP (for example `python3 -m http.server` inside `tud/www`), since require.js cannot load modules from `file://` URLs in most browsers. The game plays like this:
     * The wall is a boss with HP. Damage carries over between generations, and each destroyed wall is replaced by a tougher one (Cardboard, Plywood, Brick, and so on).
     * Every creature has its own color and a name. Survivors keep theirs, children take half their name from each parent, and duplicate names get numbered (Chompzilla II).
     * The leaderboard ranks creatures by damage dealt this generation. The chart tracks the best and average damage per generation, and the all-time record is saved in the browser.
