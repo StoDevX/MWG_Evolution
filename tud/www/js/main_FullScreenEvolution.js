@@ -745,7 +745,9 @@ require([
                     genome = generator.GenerateData(genome, genome);
                 }
                 newGenomes[9 + k] = genome;
-                newLineage[9 + k] = { name: { head: lineage[m].name.head, tail: Names.pick(Names.tails) }, origin: "mutant", streak: 0 };
+                var tail = lineage[m].name.tail;
+                while (tail === lineage[m].name.tail) { tail = Names.pick(Names.tails); } // the name changes too
+                newLineage[9 + k] = { name: { head: lineage[m].name.head, tail: tail }, origin: "mutant", streak: 0 };
             });
             for (var i = 9 + mutants.length; i < NUM_CREATURES; ++i) {
                 newLineage[i] = { name: Names.random(), origin: "random", streak: 0 };
@@ -774,7 +776,12 @@ require([
         // Breeder mode: the player picks the parents at the end of a generation.
         // --------------------------------------------------------------------
 
-        var MUTATION_LEVELS = [ [0.15, "Gentle"], [0.5, "Normal"], [0.8, "Wild"], [1, "Chaos"] ];
+        // The chance that each gene a child inherits shifts by about 10%.
+        var MUTATION_LEVELS = [ { rate: 0.15, name: "Gentle" }
+                              , { rate: 0.5,  name: "Normal" }
+                              , { rate: 0.8,  name: "Wild" }
+                              , { rate: 1,    name: "Chaos" } ];
+        var mutationLevel = 1;
 
         // Readable traits, computed from a genome. Bars on the cards compare
         // each trait across the generation.
@@ -817,18 +824,118 @@ require([
                 return "<div class='breed-card' data-i='" + i + "' style='--c:" + hex(l.color) + "'>"
                      + "<div class='card-head'><span class='pos'>#" + (rank + 1) + "</span>"
                      + "<span class='name'>" + Names.text(l.name) + "</span><span class='tag'>" + tag + "</span></div>"
+                     + "<canvas class='portrait'></canvas>"
                      + "<div class='card-dmg'>" + formatNumber(damage[i]) + " dmg</div>"
                      + "<dl>" + TRAITS.map(function (trait, t) {
                            var v = trait.value(g);
                            return "<dt>" + trait.label + "</dt><dd><span class='trait-bar' style='width:"
                                 + Math.round(100 * v / maxima[t]) + "%'></span>" + trait.text(g, v) + "</dd>";
                        }).join("") + "</dl>"
-                     + "<div class='card-actions'><span class='badge'></span>"
-                     + "<button class='mutant-btn' title='Add a heavily mutated copy to the next generation'>☢ Mutant</button></div>"
+                     + "<div class='card-actions'>"
+                     + "<button class='parent-btn'></button>"
+                     + "<button class='mutant-btn' title='Adds a copy of this creature to the next generation with every gene"
+                     + " randomly changed, by about 30%. It takes a newcomer&apos;s place. Up to 3.'></button></div>"
+                     + "<div class='card-status'></div>"
                      + "</div>";
             }).join(""));
             renderBreederPicks();
             $("#breed-screen").removeClass("hidden");
+            drawPortraits(order);
+        };
+
+        // Draws every creature in its resting pose, standing on the ground line.
+        // Each portrait is scaled to fill its frame: one long tail would shrink a
+        // shared scale to stick figures, and the trait bars already compare sizes.
+        var drawPortraits = function (order) {
+            var shapes = order.map(function (i) {
+                var g = genomes[i];
+                var w = g.torsoData.width, h = g.torsoData.height;
+                var rl = g.leftWheelData.radius, rr = g.rightWheelData.radius;
+                var vertebrae = [], tailLength = 0, tailWidth = 0;
+                for (var v = 0; v < g.tailData.numVertebrae; ++v) {
+                    var vw = g.tailData.rootWidth * Math.pow(g.tailData.widthReductionFactor, v);
+                    var vh = g.tailData.rootHeight * Math.pow(g.tailData.heightReductionFactor, v);
+                    vertebrae.push({ w: vw, h: vh });
+                    tailLength += vh;
+                    tailWidth = Math.max(tailWidth, vw);
+                }
+                // Torso center at the origin, y pointing down.
+                return {
+                    i: i, w: w, h: h, rl: rl, rr: rr, vertebrae: vertebrae
+                  , minX: Math.min(-w / 2 - rl, -tailWidth / 2), maxX: w / 2 + rr
+                  , minY: -h / 2 - tailLength, maxY: h / 2 + Math.max(rl, rr)
+                };
+            });
+
+            $("#breed-cards canvas.portrait").each(function (k) {
+                var canvas = this, s = shapes[k];
+                var ratio = window.devicePixelRatio || 1;
+                var cw = canvas.clientWidth, ch = canvas.clientHeight;
+                canvas.width = cw * ratio;
+                canvas.height = ch * ratio;
+                var ctx = canvas.getContext("2d");
+                ctx.scale(ratio, ratio);
+
+                var scale = Math.min((cw - 12) / (s.maxX - s.minX), (ch - 10) / (s.maxY - s.minY));
+                var ground = ch - 4;
+
+                ctx.strokeStyle = "rgba(255,255,255,0.25)";
+                ctx.beginPath();
+                ctx.moveTo(0, ground + 0.5);
+                ctx.lineTo(cw, ground + 0.5);
+                ctx.stroke();
+
+                ctx.translate(cw / 2 - (s.minX + s.maxX) / 2 * scale, ground - s.maxY * scale);
+                ctx.scale(scale, scale);
+                ctx.lineWidth = 1 / scale;
+                var color = lineage[s.i].color;
+
+                // Tail, stacked up from the middle of the torso's top edge.
+                ctx.fillStyle = hex(Creature.Scorpion.paleColor(color));
+                ctx.strokeStyle = "#000";
+                var y = -s.h / 2;
+                s.vertebrae.forEach(function (v) {
+                    var tip = v.h * 0.2;
+                    ctx.beginPath();
+                    ctx.moveTo(-v.w / 2, y - v.h + tip);
+                    ctx.lineTo(0, y - v.h);
+                    ctx.lineTo(v.w / 2, y - v.h + tip);
+                    ctx.lineTo(v.w / 2, y);
+                    ctx.lineTo(0, y - tip);
+                    ctx.lineTo(-v.w / 2, y);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    y -= v.h - tip;
+                });
+
+                // Torso, with a mouth and eye facing the wall.
+                ctx.fillStyle = hex(color);
+                ctx.fillRect(-s.w / 2, -s.h / 2, s.w, s.h);
+                ctx.fillStyle = "#000";
+                ctx.beginPath();
+                ctx.moveTo(s.w / 2, -s.h * 0.3);
+                ctx.lineTo(s.w * 0.1, s.h * 0.1);
+                ctx.lineTo(s.w * 0.25, s.h / 2);
+                ctx.lineTo(s.w / 2, s.h / 2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = "#fff";
+                ctx.beginPath();
+                ctx.arc(s.w * 0.15, -s.h * 0.15, Math.min(s.w, s.h) * 0.12, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Wheels on the bottom corners.
+                [[-s.w / 2, s.rl], [s.w / 2, s.rr]].forEach(function (wheel) {
+                    ctx.beginPath();
+                    ctx.arc(wheel[0], s.h / 2, wheel[1], 0, Math.PI * 2);
+                    ctx.fillStyle = "#ccc";
+                    ctx.fill();
+                    ctx.lineWidth = wheel[1] / 3;
+                    ctx.strokeStyle = "#111";
+                    ctx.stroke();
+                });
+            });
         };
 
         var breederOpen = function () { return !$("#breed-screen").hasClass("hidden"); };
@@ -839,8 +946,15 @@ require([
                 var p = breederPicks.parents.indexOf(i);
                 var isMutant = breederPicks.mutants.indexOf(i) >= 0;
                 $(this).toggleClass("parent", p >= 0).toggleClass("mutant", isMutant);
-                $(this).find(".badge").text(p >= 0 ? "Parent " + (p + 1) : "");
-                $(this).find(".mutant-btn").toggleClass("on", isMutant);
+                $(this).find(".parent-btn").toggleClass("on", p >= 0)
+                       .text(p >= 0 ? "✓ Parent" : "Make parent")
+                       .prop("disabled", p < 0 && breederPicks.parents.length >= 3);
+                $(this).find(".mutant-btn").toggleClass("on", isMutant)
+                       .text(isMutant ? "✓ Mutant copy" : "+ Mutant copy")
+                       .prop("disabled", !isMutant && breederPicks.mutants.length >= 3);
+                $(this).find(".card-status").html(
+                    (p >= 0 ? "<div>Survives and breeds with the other parents.</div>" : "")
+                  + (isMutant ? "<div>A scrambled copy joins the next generation.</div>" : ""));
             });
             var n = breederPicks.parents.length;
             var children = 9 - n, mutants = breederPicks.mutants.length;
@@ -859,8 +973,19 @@ require([
         };
 
         var mutationRate = function () {
-            return MUTATION_LEVELS[+$("#mutation").val()][0];
+            return MUTATION_LEVELS[mutationLevel].rate;
         };
+
+        var renderMutation = function () {
+            var level = MUTATION_LEVELS[mutationLevel];
+            $("#mutation button").each(function (k) { $(this).toggleClass("on", k === mutationLevel); });
+            $("#mutation-help").text("Each gene a child inherits has a " + Math.round(level.rate * 100)
+                + "% chance to shift by about 10%. Parents and mutant copies are not affected.");
+        };
+        $("#mutation").html(MUTATION_LEVELS.map(function (level) {
+            return "<button>" + level.name + "</button>";
+        }).join(""));
+        renderMutation();
 
         var closeBreeder = function (autoGenerations) {
             if (breederPicks.parents.length === 0) { return; }
@@ -871,6 +996,7 @@ require([
             setPaused(false);
         };
 
+        // Clicking anywhere on a card, or its Parent button, toggles it as a parent.
         $("#breed-cards").on("click", ".breed-card", function () {
             toggleIn(breederPicks.parents, +this.dataset.i, 3);
             renderBreederPicks();
@@ -880,8 +1006,9 @@ require([
             toggleIn(breederPicks.mutants, +$(this).closest(".breed-card")[0].dataset.i, 3);
             renderBreederPicks();
         });
-        $("#mutation").on("input", function () {
-            $("#mutation-label").text(MUTATION_LEVELS[+this.value][1]);
+        $("#mutation").on("click", "button", function () {
+            mutationLevel = $(this).index();
+            renderMutation();
         });
         $("#btn-breed").on("click", function () { closeBreeder(0); });
         $("#btn-auto5").on("click", function () { closeBreeder(5); });
