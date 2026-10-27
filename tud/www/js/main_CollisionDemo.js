@@ -12,17 +12,13 @@ requirejs.config({
                 //module value.
                 exports: 'Box2D'
         }
-    },
-
-    paths: {
-        jquery: "https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min"
     }
 
 });
 
 "use strict";
 require([
-      "jquery"
+      "lib/ready"
     , "lib/Box2dWeb_dev"
     , "lib/pixi"
     , "lib/Utils"
@@ -30,7 +26,7 @@ require([
     , "app/Body"
     , "app/Creature"
     , "app/Wall"
-    ], function ($, Box2D, PIXI, Utils, Mind, Body, Creature, Wall) {
+    ], function (ready, Box2D, PIXI, Utils, Mind, Body, Creature, Wall) {
 
 
     // console.log($);
@@ -275,7 +271,7 @@ require([
 
 
 
-    $( document ).ready(function(){
+    ready(function(){
         debugRendererInit();
         pixiRendererInit();
     });
