@@ -337,6 +337,13 @@ button:disabled { opacity: 0.4; cursor: default; }
   #breed-plan { width: 100%; }
 }
 
+/* The narrowest phones need tighter controls to fit all six buttons. */
+@media (max-width: 400px) {
+  #controls { left: 6px; gap: 4px; }
+  #controls button { padding-left: 9px; padding-right: 9px; }
+  #btn-play, #btn-speed { min-width: 0; }
+}
+
 /* When the screen is taller than the world, the world sits at the bottom and
    the HUD moves into the sky above it. */
 body.tall #leaderboard { top: 136px; bottom: auto; }
