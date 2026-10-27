@@ -105,11 +105,7 @@ define([
   , setColor: function (color) {
       // Colors the torso, and the tail in a paler shade of the same color.
       // Call this before addToStage.
-      var pale = 0;
-      for (var shift = 0; shift <= 16; shift += 8) {
-        var channel = (color >> shift) & 0xFF;
-        pale |= Math.round(channel + (255 - channel) * 0.55) << shift;
-      }
+      var pale = Scorpion.paleColor(color);
       this.torso.color = color;
       this.tail.vertebrae.forEach(function (vertebra) { vertebra.color = pale; });
     }
@@ -127,6 +123,16 @@ define([
     }
   });
 
+
+  // The paler shade of a creature's color used for its tail.
+  Scorpion.paleColor = function (color) {
+    var pale = 0;
+    for (var shift = 0; shift <= 16; shift += 8) {
+      var channel = (color >> shift) & 0xFF;
+      pale |= Math.round(channel + (255 - channel) * 0.55) << shift;
+    }
+    return pale;
+  };
 
   return Scorpion;
 });

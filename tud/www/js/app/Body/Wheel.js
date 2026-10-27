@@ -128,7 +128,8 @@ define([ "app/Body/BodyPart"
       // Hub cap
       graphics.lineStyle(HUB_CAP_BORDER_WIDTH, 0x000000, 1);
       graphics.beginFill(0xEEEEEE, 1);
-      graphics.drawCircle(0, 0, HUB_CAP_RADIUS - HUB_CAP_BORDER_WIDTH / 2);
+      // Tiny wheels drawn at a small scale would otherwise get a negative radius, which throws.
+      graphics.drawCircle(0, 0, Math.max(0, HUB_CAP_RADIUS - HUB_CAP_BORDER_WIDTH / 2));
       graphics.endFill();
 
       // A wheel is built from a fill, a spoke for each spoke count, a tire and a hub

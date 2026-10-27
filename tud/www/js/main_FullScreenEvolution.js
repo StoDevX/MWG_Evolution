@@ -44,7 +44,10 @@ require([
     var HIT_THRESHOLD      = 5;       // ignore impulses smaller than this
     var WALL_BASE_HP       = 6000;
     var WALL_HP_GROWTH     = 1.45;    // each wall has this many times the HP of the last
-    var RECORD_KEY         = "mwgEvolution.record";
+    var AUTO_MUTATION_RATE = 0.5;
+    // Records are kept apart for generations bred automatically and by the player.
+    // The auto key predates breeder mode, so it keeps its old name.
+    var RECORD_KEYS        = { auto: "mwgEvolution.record", breeder: "mwgEvolution.record.breeder" };
 
     // One color per creature slot. Survivors keep their color across generations.
     var PALETTE = [
@@ -239,26 +242,35 @@ require([
           ;
 
 /*
-        The world will be the full width of the screen and the full height of the screen.
-        The meter size in pixels will depend on the ratio of the screen height in pixels
-        to the fixed height of the world in meters.
+        The world is always 17 meters tall and at least 22 meters wide. On a wide
+        screen it fills the screen. On a tall one, like a phone held upright, it
+        is zoomed out to fit the width and sits at the bottom of the screen, and
+        the sky above holds the HUD. Otherwise a phone would get an arena only
+        8 meters wide, with creatures spawning on top of the wall.
 */
-        var pixelWidth  = window.innerWidth;
-        var pixelHeight = window.innerHeight;
-        var worldHeight = 17; // meters
-        var worldWidth  = worldHeight * pixelWidth / pixelHeight;
-        var METER       = pixelHeight / worldHeight; // pixels per meter
+        var MIN_WORLD_WIDTH = 22; // meters
+        var worldHeight = 17;     // meters
+        var pixelWidth, pixelHeight, worldWidth, METER, viewHeight, sceneTop, spawnX;
 
-        // Creatures spawn a third of the way across, but never on top of the wall
-        // on a narrow screen.
-        var spawnX = Math.min(10, worldWidth * 0.33);
+        var layout = function () {
+            pixelWidth  = window.innerWidth;
+            pixelHeight = window.innerHeight;
+            worldWidth  = Math.max(MIN_WORLD_WIDTH, worldHeight * pixelWidth / pixelHeight);
+            METER       = pixelWidth / worldWidth;     // pixels per meter
+            viewHeight  = worldHeight * METER;         // pixel height of the world
+            sceneTop    = pixelHeight - viewHeight;    // sky above the world, if any
+            // Creatures spawn a third of the way across, but no more than 10 m in.
+            spawnX = Math.min(10, worldWidth * 0.33);
+            document.body.classList.toggle("tall", sceneTop > 1);
+        };
+        layout();
 
         // --------------------------------------------------------------------
         // State
         // --------------------------------------------------------------------
 
         var world, wall;
-        var generator = new Generator(0.5);
+        var generator = new Generator(AUTO_MUTATION_RATE);
         var genomes   = generator.GenerateRandData(NUM_CREATURES); // first generation is random
         var lineage   = genomes.map(function (genome, i) {
             return { name: Names.random(), color: PALETTE[i], origin: "random", streak: 0 };
@@ -277,10 +289,17 @@ require([
         var wallSince   = 1;      // generation this wall appeared in
 
         var history = []; // { best, avg } per generation
-        var record  = { score: 0, name: "", generation: 0 };
-        try {
-            record = JSON.parse(localStorage.getItem(RECORD_KEY)) || record;
-        } catch (e) {}
+        var records = {};
+        Object.keys(RECORD_KEYS).forEach(function (key) {
+            records[key] = { score: 0, name: "", generation: 0 };
+            try {
+                records[key] = JSON.parse(localStorage.getItem(RECORD_KEYS[key])) || records[key];
+            } catch (e) {}
+        });
+
+        var mode     = "auto";  // "auto", or "breeder" where the player picks parents
+        var autoLeft = 0;       // generations breeder mode leaves to auto before asking again
+        var bredBy   = "auto";  // who bred the generation on screen; its score counts toward that record
 
         var paused     = true;
         var started    = false;
@@ -312,28 +331,30 @@ require([
         scene.addChild(fx);
 
         var drawBackdrop = function () {
+            if (backdrop.cacheAsBitmap) { backdrop.cacheAsBitmap = false; } // redrawn after a resize
+            backdrop.clear();
             // Distant hills
             var layers = [ { color: 0x3B4A8C, height: 0.45, bumps: 3 }
                          , { color: 0x2C356B, height: 0.3,  bumps: 5 } ];
             layers.forEach(function (layer, li) {
                 backdrop.beginFill(layer.color, 1);
-                backdrop.moveTo(-20, pixelHeight);
+                backdrop.moveTo(-20, viewHeight);
                 for (var x = -20; x <= pixelWidth + 20; x += 20) {
                     var t = x / pixelWidth * Math.PI * layer.bumps + li * 1.7;
-                    var y = pixelHeight * (1 - layer.height) + Math.sin(t) * pixelHeight * 0.06
-                          + Math.sin(t * 2.3) * pixelHeight * 0.025;
+                    var y = viewHeight * (1 - layer.height) + Math.sin(t) * viewHeight * 0.06
+                          + Math.sin(t * 2.3) * viewHeight * 0.025;
                     backdrop.lineTo(x, y);
                 }
-                backdrop.lineTo(pixelWidth + 20, pixelHeight);
+                backdrop.lineTo(pixelWidth + 20, viewHeight);
                 backdrop.endFill();
             });
 
-            // Ground: the top of the ground body sits 0.2 m above the bottom of the screen.
+            // Ground: the top of the ground body sits 0.2 m above the bottom of the world.
             backdrop.beginFill(0x3D2B1F, 1);
-            backdrop.drawRect(-20, pixelHeight - 0.2 * METER, pixelWidth + 40, 0.2 * METER + 20);
+            backdrop.drawRect(-20, viewHeight - 0.2 * METER, pixelWidth + 40, 0.2 * METER + 20);
             backdrop.endFill();
             backdrop.beginFill(0x5C940D, 1);
-            backdrop.drawRect(-20, pixelHeight - 0.2 * METER, pixelWidth + 40, 0.06 * METER);
+            backdrop.drawRect(-20, viewHeight - 0.2 * METER, pixelWidth + 40, 0.06 * METER);
             backdrop.endFill();
             backdrop.cacheAsBitmap = true;
         };
@@ -550,8 +571,8 @@ require([
                 p.vy += 900 * dt;
                 p.x += p.vx * dt;
                 p.y += p.vy * dt;
-                if (p.y > pixelHeight - 0.2 * METER) { // bounce on the ground
-                    p.y = pixelHeight - 0.2 * METER;
+                if (p.y > viewHeight - 0.2 * METER) { // bounce on the ground
+                    p.y = viewHeight - 0.2 * METER;
                     p.vy *= -0.35;
                     p.vx *= 0.7;
                 }
@@ -567,7 +588,7 @@ require([
             el.className = "popup";
             el.textContent = text;
             el.style.left = x + "px";
-            el.style.top = y + "px";
+            el.style.top = (y + sceneTop) + "px";
             el.style.color = color;
             el.style.fontSize = size + "px";
             el.addEventListener("animationend", function () { el.remove(); });
@@ -654,6 +675,15 @@ require([
                          .sort(function (a, b) { return damage[b] - damage[a]; });
         };
 
+        // Favored creatures first, then the hardest hitters.
+        var defaultParents = function () {
+            var parents = favored.slice().sort(function (a, b) { return damage[b] - damage[a]; });
+            ranking().forEach(function (i) {
+                if (parents.indexOf(i) < 0) { parents.push(i); }
+            });
+            return parents.slice(0, 3);
+        };
+
         var endGeneration = function () {
             var order = ranking();
             var best = damage[order[0]];
@@ -662,10 +692,19 @@ require([
             history.push({ best: best, avg: avg });
 
             var champion = lineage[order[0]];
+            var record = records[bredBy];
             var newRecord = best > record.score;
             if (newRecord) {
-                record = { score: best, name: Names.text(champion.name), generation: generation };
-                try { localStorage.setItem(RECORD_KEY, JSON.stringify(record)); } catch (e) {}
+                records[bredBy] = { score: best, name: Names.text(champion.name), generation: generation };
+                try { localStorage.setItem(RECORD_KEYS[bredBy], JSON.stringify(records[bredBy])); } catch (e) {}
+            }
+            if (newRecord) { Sound.record(); } else { Sound.generation(); }
+            drawHistory();
+
+            var breedNow = mode === "auto" || autoLeft > 0;
+            if (!breedNow) {
+                openBreeder(newRecord);
+                return;
             }
 
             var change = previousBest > 0 ? Math.round((best / previousBest - 1) * 100) : null;
@@ -673,50 +712,349 @@ require([
                  + "<p>&#9819; <b style='color:" + hex(champion.color) + "'>" + Names.text(champion.name)
                  + "</b> dealt " + formatNumber(best) + " damage"
                  + (!change ? "" : " (" + (change >= 0 ? "+" : "") + change + "% vs last)") + "</p>"
-                 + (newRecord ? "<p class='record'>NEW ALL-TIME RECORD!</p>" : ""), 2600);
-            if (newRecord) { Sound.record(); } else { Sound.generation(); }
+                 + (newRecord ? "<p class='record'>NEW " + bredBy.toUpperCase() + " RECORD!</p>" : ""), 2600);
 
-            // Parents: favored creatures first, then the hardest hitters.
-            var parents = favored.slice().sort(function (a, b) { return damage[b] - damage[a]; });
-            order.forEach(function (i) {
-                if (parents.indexOf(i) < 0) { parents.push(i); }
+            if (autoLeft > 0) {
+                autoLeft--;
+                updateModeButton();
+            }
+            breed(defaultParents(), [], AUTO_MUTATION_RATE, "auto");
+        };
+
+        // Builds the next generation:
+        //   the parents (1 to 3) survive unchanged,
+        //   children of every pairing of parents fill the slots up to 9,
+        //   each mutant index gets a heavily mutated copy,
+        //   and newcomers fill whatever is left.
+        var breed = function (parents, mutants, mutationRate, by) {
+            generator.mutationRate = mutationRate;
+
+            var pairs = [];
+            parents.forEach(function (a, i) {
+                parents.forEach(function (b, j) {
+                    if (i < j || parents.length === 1) { pairs.push([a, b]); }
+                });
             });
-            parents = parents.slice(0, 3);
 
-            // Same breeding plan as before: 3 survivors, 6 children, 3 newcomers.
-            var pairs = [[0, 1], [0, 2], [1, 2], [0, 1], [0, 2], [1, 2]];
             var newGenomes = generator.GenerateRandData(NUM_CREATURES);
             var newLineage = [];
             parents.forEach(function (p, i) {
                 newGenomes[i] = genomes[p];
-                newLineage[i] = { name: lineage[p].name, color: lineage[p].color, origin: "survivor", streak: lineage[p].streak + 1 };
+                // A stranger gives up its stranger color for one of the team's.
+                var color = p === STRANGER ? undefined : lineage[p].color;
+                newLineage[i] = { name: lineage[p].name, color: color, origin: "survivor", streak: lineage[p].streak + 1 };
             });
-            pairs.forEach(function (pair, k) {
-                var a = parents[pair[0]], b = parents[pair[1]];
-                newGenomes[3 + k] = generator.GenerateData(genomes[a], genomes[b]);
-                newLineage[3 + k] = { name: Names.child(lineage[a].name, lineage[b].name), origin: "child", streak: 0 };
+            for (var k = parents.length; k < 9; ++k) {
+                // Alternate which parent leads, so siblings get both name halves.
+                var pair = pairs[(k - parents.length) % pairs.length];
+                var a = pair[k % 2], b = pair[1 - k % 2];
+                newGenomes[k] = generator.GenerateData(genomes[a], genomes[b]);
+                newLineage[k] = { name: Names.child(lineage[a].name, lineage[b].name), origin: "child", streak: 0 };
+            }
+            mutants.forEach(function (m, k) {
+                generator.mutationRate = 1;
+                var genome = genomes[m];
+                for (var round = 0; round < 3; ++round) { // every gene moves, three times over
+                    genome = generator.GenerateData(genome, genome);
+                }
+                newGenomes[9 + k] = genome;
+                var tail = lineage[m].name.tail;
+                while (tail === lineage[m].name.tail) { tail = Names.pick(Names.tails); } // the name changes too
+                newLineage[9 + k] = { name: { head: lineage[m].name.head, tail: tail }, origin: "mutant", streak: 0 };
             });
-            for (var i = 9; i < NUM_CREATURES; ++i) {
+            for (var i = 9 + mutants.length; i < NUM_CREATURES; ++i) {
                 newLineage[i] = { name: Names.random(), origin: "random", streak: 0 };
             }
 
             // Survivors keep their colors; everyone else takes what is left.
-            var used = newLineage.slice(0, 3).map(function (l) { return l.color; });
+            var used = newLineage.map(function (l) { return l.color; });
             var free = PALETTE.filter(function (c) { return used.indexOf(c) < 0; });
-            for (var j = 3; j < NUM_CREATURES; ++j) {
-                newLineage[j].color = free.shift();
-            }
+            newLineage.forEach(function (l) {
+                if (l.color === undefined) { l.color = free.shift(); }
+            });
 
             Names.number(newLineage.map(function (l) { return l.name; }));
 
             genomes = newGenomes;
             lineage = newLineage;
+            bredBy = by;
             favored = [];
             generation++;
             spawnGeneration();
             drawHistory();
             updateHud(true);
         };
+
+        // --------------------------------------------------------------------
+        // Breeder mode: the player picks the parents at the end of a generation.
+        // --------------------------------------------------------------------
+
+        // The chance that each gene a child inherits shifts by about 10%.
+        var MUTATION_LEVELS = [ { rate: 0.15, name: "Gentle" }
+                              , { rate: 0.5,  name: "Normal" }
+                              , { rate: 0.8,  name: "Wild" }
+                              , { rate: 1,    name: "Chaos" } ];
+        var mutationLevel = 1;
+
+        // Readable traits, computed from a genome. Bars on the cards compare
+        // each trait across the generation.
+        var TRAITS = [
+            { label: "Tail", value: function (g) {
+                  var length = 0;
+                  for (var i = 0; i < g.tailData.numVertebrae; ++i) {
+                      length += g.tailData.rootHeight * Math.pow(g.tailData.heightReductionFactor, i);
+                  }
+                  return length;
+              }, text: function (g, v) { return Math.ceil(g.tailData.numVertebrae) + " seg, " + v.toFixed(1) + " m"; } }
+          , { label: "Muscle", value: function (g) { return g.tailData.rootMaxTorque; }
+              , text: function (g, v) { return Math.round(v / 1000) + "k"; } }
+          , { label: "Body", value: function (g) { return g.torsoData.width * g.torsoData.height; }
+              , text: function (g) { return g.torsoData.width.toFixed(1) + " × " + g.torsoData.height.toFixed(1) + " m"; } }
+          , { label: "Wheels", value: function (g) { return g.leftWheelData.radius + g.rightWheelData.radius; }
+              , text: function (g) { return g.leftWheelData.radius.toFixed(1) + " / " + g.rightWheelData.radius.toFixed(1) + " m"; } }
+          , { label: "Drive", value: function (g) { return (g.leftWheelJointData.motorSpeed + g.rightWheelJointData.motorSpeed) / 2; }
+              , text: function (g, v) { return v.toFixed(1); } }
+          , { label: "Swing", value: function (g) { return g.tailNeuronData.maxMotorSpeeds[1]; }
+              , text: function (g, v) { return v.toFixed(1); } }
+        ];
+
+        var breederPicks = { parents: [], mutants: [] };
+
+        // The stranger is a brand-new random creature offered on the breeding
+        // screen, so the player can bring fresh genes straight into the
+        // bloodline. While the screen is open it lives one past the end of
+        // genomes and lineage, so breed() treats it like any other parent.
+        var STRANGER = NUM_CREATURES;
+        var STRANGER_COLOR = 0xFCC419;
+
+        var newStranger = function () {
+            genomes[STRANGER] = generator.GenerateRandData(1)[0];
+            lineage[STRANGER] = { name: Names.random(), color: STRANGER_COLOR, origin: "stranger", streak: 0 };
+        };
+
+        var openBreeder = function (newRecord) {
+            setPaused(true);
+            breederPicks = { parents: defaultParents(), mutants: [] };
+            newStranger();
+            $("#breed-gen").text(generation);
+            $("#breed-record").text(newRecord ? "New " + bredBy + " record!" : "");
+            renderCards();
+            $("#breed-screen").removeClass("hidden");
+            drawPortraits(ranking().concat([STRANGER]));
+        };
+
+        var renderCards = function () {
+            var order = ranking().concat([STRANGER]);
+            var maxima = TRAITS.map(function (trait) {
+                return Math.max.apply(null, genomes.map(trait.value)) || 1;
+            });
+            $("#breed-cards").html(order.map(function (i, rank) {
+                var l = lineage[i], g = genomes[i];
+                var stranger = i === STRANGER;
+                var tag = l.origin === "survivor" ? "★" + l.streak
+                        : l.origin === "random" ? "new" : l.origin;
+                return "<div class='breed-card" + (stranger ? " stranger" : "") + "' data-i='" + i + "' style='--c:" + hex(l.color) + "'>"
+                     + "<div class='card-head'><span class='pos'>" + (stranger ? "?" : "#" + (rank + 1)) + "</span>"
+                     + "<span class='name'>" + Names.text(l.name) + "</span><span class='tag'>" + tag + "</span></div>"
+                     + "<canvas class='portrait'></canvas>"
+                     + "<div class='card-dmg'>" + (stranger ? "Untested" : formatNumber(damage[i]) + " dmg") + "</div>"
+                     + "<dl>" + TRAITS.map(function (trait, t) {
+                           var v = trait.value(g);
+                           return "<dt>" + trait.label + "</dt><dd><span class='trait-bar' style='width:"
+                                + Math.round(100 * v / maxima[t]) + "%'></span>" + trait.text(g, v) + "</dd>";
+                       }).join("") + "</dl>"
+                     + "<div class='card-actions'>"
+                     + "<button class='parent-btn'></button>"
+                     + (stranger
+                        ? "<button class='reroll-btn' title='Replace the stranger with a different random creature'>↻ Another</button>"
+                        : "<button class='mutant-btn' title='Adds a copy of this creature to the next generation with every gene"
+                          + " randomly changed, by about 30%. It takes a newcomer&apos;s place. Up to 3.'></button>")
+                     + "</div>"
+                     + "<div class='card-status'></div>"
+                     + "</div>";
+            }).join(""));
+            renderBreederPicks();
+        };
+
+        // Draws every creature in its resting pose, standing on the ground line.
+        // Each portrait is scaled to fill its frame: one long tail would shrink a
+        // shared scale to stick figures, and the trait bars already compare sizes.
+        var drawPortraits = function (order) {
+            var shapes = order.map(function (i) {
+                var g = genomes[i];
+                var w = g.torsoData.width, h = g.torsoData.height;
+                var rl = g.leftWheelData.radius, rr = g.rightWheelData.radius;
+                var vertebrae = [], tailLength = 0, tailWidth = 0;
+                for (var v = 0; v < g.tailData.numVertebrae; ++v) {
+                    var vw = g.tailData.rootWidth * Math.pow(g.tailData.widthReductionFactor, v);
+                    var vh = g.tailData.rootHeight * Math.pow(g.tailData.heightReductionFactor, v);
+                    vertebrae.push({ w: vw, h: vh });
+                    tailLength += vh;
+                    tailWidth = Math.max(tailWidth, vw);
+                }
+                // Torso center at the origin, y pointing down.
+                return {
+                    i: i, w: w, h: h, rl: rl, rr: rr, vertebrae: vertebrae
+                  , minX: Math.min(-w / 2 - rl, -tailWidth / 2), maxX: w / 2 + rr
+                  , minY: -h / 2 - tailLength, maxY: h / 2 + Math.max(rl, rr)
+                };
+            });
+
+            $("#breed-cards canvas.portrait").each(function (k) {
+                var canvas = this, s = shapes[k];
+                var ratio = window.devicePixelRatio || 1;
+                var cw = canvas.clientWidth, ch = canvas.clientHeight;
+                canvas.width = cw * ratio;
+                canvas.height = ch * ratio;
+                var ctx = canvas.getContext("2d");
+                ctx.scale(ratio, ratio);
+
+                var scale = Math.min((cw - 12) / (s.maxX - s.minX), (ch - 10) / (s.maxY - s.minY));
+                var ground = ch - 4;
+
+                ctx.strokeStyle = "rgba(255,255,255,0.25)";
+                ctx.beginPath();
+                ctx.moveTo(0, ground + 0.5);
+                ctx.lineTo(cw, ground + 0.5);
+                ctx.stroke();
+
+                ctx.translate(cw / 2 - (s.minX + s.maxX) / 2 * scale, ground - s.maxY * scale);
+                ctx.scale(scale, scale);
+                ctx.lineWidth = 1 / scale;
+                var color = lineage[s.i].color;
+
+                // Tail, stacked up from the middle of the torso's top edge.
+                ctx.fillStyle = hex(Creature.Scorpion.paleColor(color));
+                ctx.strokeStyle = "#000";
+                var y = -s.h / 2;
+                s.vertebrae.forEach(function (v) {
+                    var tip = v.h * 0.2;
+                    ctx.beginPath();
+                    ctx.moveTo(-v.w / 2, y - v.h + tip);
+                    ctx.lineTo(0, y - v.h);
+                    ctx.lineTo(v.w / 2, y - v.h + tip);
+                    ctx.lineTo(v.w / 2, y);
+                    ctx.lineTo(0, y - tip);
+                    ctx.lineTo(-v.w / 2, y);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    y -= v.h - tip;
+                });
+
+                // Torso, with a mouth and eye facing the wall.
+                ctx.fillStyle = hex(color);
+                ctx.fillRect(-s.w / 2, -s.h / 2, s.w, s.h);
+                ctx.fillStyle = "#000";
+                ctx.beginPath();
+                ctx.moveTo(s.w / 2, -s.h * 0.3);
+                ctx.lineTo(s.w * 0.1, s.h * 0.1);
+                ctx.lineTo(s.w * 0.25, s.h / 2);
+                ctx.lineTo(s.w / 2, s.h / 2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = "#fff";
+                ctx.beginPath();
+                ctx.arc(s.w * 0.15, -s.h * 0.15, Math.min(s.w, s.h) * 0.12, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Wheels on the bottom corners.
+                [[-s.w / 2, s.rl], [s.w / 2, s.rr]].forEach(function (wheel) {
+                    ctx.beginPath();
+                    ctx.arc(wheel[0], s.h / 2, wheel[1], 0, Math.PI * 2);
+                    ctx.fillStyle = "#ccc";
+                    ctx.fill();
+                    ctx.lineWidth = wheel[1] / 3;
+                    ctx.strokeStyle = "#111";
+                    ctx.stroke();
+                });
+            });
+        };
+
+        var breederOpen = function () { return !$("#breed-screen").hasClass("hidden"); };
+
+        var renderBreederPicks = function () {
+            $("#breed-cards .breed-card").each(function () {
+                var i = +this.dataset.i;
+                var p = breederPicks.parents.indexOf(i);
+                var isMutant = breederPicks.mutants.indexOf(i) >= 0;
+                $(this).toggleClass("parent", p >= 0).toggleClass("mutant", isMutant);
+                $(this).find(".parent-btn").toggleClass("on", p >= 0)
+                       .text(p >= 0 ? "✓ Parent" : "Make parent")
+                       .prop("disabled", p < 0 && breederPicks.parents.length >= 3);
+                $(this).find(".mutant-btn").toggleClass("on", isMutant)
+                       .text(isMutant ? "✓ Mutant copy" : "+ Mutant copy")
+                       .prop("disabled", !isMutant && breederPicks.mutants.length >= 3);
+                $(this).find(".card-status").html(
+                    (i === STRANGER && p < 0 ? "<div>A brand-new random creature. Make it a parent to bring fresh genes into the bloodline.</div>" : "")
+                  + (p >= 0 ? "<div>Survives and breeds with the other parents.</div>" : "")
+                  + (isMutant ? "<div>A scrambled copy joins the next generation.</div>" : ""));
+            });
+            var n = breederPicks.parents.length;
+            var children = 9 - n, mutants = breederPicks.mutants.length;
+            $("#breed-plan").text(n === 0
+                ? "Pick at least one parent."
+                : n + " survivor" + (n === 1 ? "" : "s") + ", " + children + " children"
+                  + (mutants ? ", " + mutants + " mutant" + (mutants === 1 ? "" : "s") : "")
+                  + ", " + (3 - mutants) + " newcomer" + (3 - mutants === 1 ? "" : "s"));
+            $("#btn-breed, #btn-auto5").prop("disabled", n === 0);
+        };
+
+        var toggleIn = function (list, i, max) {
+            var at = list.indexOf(i);
+            if (at >= 0) { list.splice(at, 1); }
+            else if (list.length < max) { list.push(i); }
+        };
+
+        var mutationRate = function () {
+            return MUTATION_LEVELS[mutationLevel].rate;
+        };
+
+        var mutationHelp = function (level) {
+            return "Each gene a child inherits has a " + Math.round(level.rate * 100)
+                 + "% chance to shift by about 10%. Parents and mutant copies are not affected.";
+        };
+
+        var renderMutation = function () {
+            $("#mutation button").each(function (k) { $(this).toggleClass("on", k === mutationLevel); });
+            $("#mutation-help").text(mutationHelp(MUTATION_LEVELS[mutationLevel]));
+        };
+        $("#mutation").html(MUTATION_LEVELS.map(function (level) {
+            return "<button title='" + mutationHelp(level) + "'>" + level.name + "</button>";
+        }).join(""));
+        renderMutation();
+
+        var closeBreeder = function (autoGenerations) {
+            if (breederPicks.parents.length === 0) { return; }
+            $("#breed-screen").addClass("hidden");
+            autoLeft = autoGenerations;
+            updateModeButton();
+            breed(breederPicks.parents, breederPicks.mutants, mutationRate(), "breeder");
+            setPaused(false);
+        };
+
+        // Clicking anywhere on a card, or its Parent button, toggles it as a parent.
+        $("#breed-cards").on("click", ".breed-card", function () {
+            toggleIn(breederPicks.parents, +this.dataset.i, 3);
+            renderBreederPicks();
+        });
+        $("#breed-cards").on("click", ".reroll-btn", function (event) {
+            event.stopPropagation();
+            newStranger();
+            renderCards();
+            drawPortraits(ranking().concat([STRANGER]));
+        });
+        $("#breed-cards").on("click", ".mutant-btn", function (event) {
+            event.stopPropagation();
+            toggleIn(breederPicks.mutants, +$(this).closest(".breed-card")[0].dataset.i, 3);
+            renderBreederPicks();
+        });
+        $("#mutation").on("click", "button", function () {
+            mutationLevel = $(this).index();
+            renderMutation();
+        });
+        $("#btn-breed").on("click", function () { closeBreeder(0); });
+        $("#btn-auto5").on("click", function () { closeBreeder(5); });
 
         // --------------------------------------------------------------------
         // HUD
@@ -793,7 +1131,7 @@ require([
             order.forEach(function (i, rank) {
                 var l = lineage[i];
                 var tag = l.origin === "survivor" ? "★" + l.streak
-                        : l.origin === "child" ? "child" : "new";
+                        : l.origin === "random" ? "new" : l.origin;
                 var html = "<span class='pos'>" + (rank + 1) + "</span>"
                      + "<span class='swatch' style='background:" + hex(l.color) + "'></span>"
                      + "<span class='name'>" + (rank === 0 && damage[i] > 0 ? "♛ " : "")
@@ -842,8 +1180,9 @@ require([
             ctx.scale(ratio, ratio);
             ctx.clearRect(0, 0, 240, 80);
 
+            var record = records[mode];
             $("#record").text(record.score > 0
-                ? "record " + formatNumber(record.score) + " by " + record.name
+                ? mode + " record " + formatNumber(record.score) + " by " + record.name
                 : "");
 
             if (history.length === 0) {
@@ -877,6 +1216,21 @@ require([
         // Controls
         // --------------------------------------------------------------------
 
+        var updateModeButton = function () {
+            $("#btn-mode").text(mode === "auto" ? "Auto" : autoLeft > 0 ? "Breeder (auto " + autoLeft + ")" : "Breeder")
+                          .toggleClass("breeder", mode === "breeder");
+        };
+
+        var toggleMode = function () {
+            mode = mode === "auto" ? "breeder" : "auto";
+            autoLeft = 0;
+            updateModeButton();
+            drawHistory();
+            banner(mode === "auto"
+                ? "<h2>Auto mode</h2><p>The top scorers breed on their own.</p>"
+                : "<h2>Breeder mode</h2><p>You choose the parents when this generation ends.</p>", 1800);
+        };
+
         var setPaused = function (value) {
             paused = value;
             $("#btn-play").html(paused ? "&#9654;" : "&#10074;&#10074;");
@@ -896,7 +1250,7 @@ require([
             Sound.start();
             started = true;
             $("#title-screen").addClass("hidden");
-            setPaused(false);
+            setPaused(breederOpen()); // stay paused while the player is choosing parents
         };
 
         var showHelp = function () {
@@ -906,8 +1260,9 @@ require([
         };
 
         $("#btn-start").on("click", start);
-        $("#btn-play").on("click", function () { setPaused(!paused); });
-        $("#btn-evolve").on("click", function () { if (started) { endGeneration(); } });
+        $("#btn-play").on("click", function () { if (!breederOpen()) { setPaused(!paused); } });
+        $("#btn-evolve").on("click", function () { if (started && !breederOpen()) { endGeneration(); } });
+        $("#btn-mode").on("click", function () { if (!breederOpen()) { toggleMode(); } });
         $("#btn-speed").on("click", cycleSpeed);
         $("#btn-sound").on("click", toggleSound);
         $("#btn-help").on("click", showHelp);
@@ -935,7 +1290,12 @@ require([
                 if (event.key === " " || event.key === "Enter") { event.preventDefault(); start(); }
                 return;
             }
+            if (breederOpen()) {
+                if (event.key === "Enter") { closeBreeder(0); }
+                return;
+            }
             switch (event.key.toLowerCase()) {
+                case "b": toggleMode(); break;
                 case " ": event.preventDefault(); setPaused(!paused); break;
                 case "e": endGeneration(); break;
                 case "s": cycleSpeed(); break;
@@ -1003,7 +1363,7 @@ require([
             updateParticles(dt);
 
             scene.position.x = (Math.random() - 0.5) * shake;
-            scene.position.y = (Math.random() - 0.5) * shake;
+            scene.position.y = sceneTop + (Math.random() - 0.5) * shake;
             shake = shake < 0.5 ? 0 : shake * Math.pow(0.002, dt);
 
             updateHud(false);
@@ -1012,6 +1372,30 @@ require([
             renderer.render(stage);
             requestAnimFrame(animate);
         }
+
+        // Rotating a phone or resizing the window changes the world's size, so the
+        // current generation restarts to fit. The wall keeps its HP. While the
+        // breeding screen is open the world is rebuilt by breeding anyway.
+        var resizeTimer = null;
+        window.addEventListener("resize", function () {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function () {
+                if (window.innerWidth === pixelWidth && window.innerHeight === pixelHeight) { return; }
+                layout();
+                renderer.resize(pixelWidth, pixelHeight);
+                drawBackdrop();
+                particles = [];
+                if (breederOpen()) {
+                    drawPortraits(ranking().concat([STRANGER]));
+                    return;
+                }
+                spawnGeneration();
+                updateHud(true);
+                if (started) {
+                    banner("<h2>Screen changed</h2><p>Generation " + generation + " restarted to fit.</p>", 1800);
+                }
+            }, 250);
+        });
 
         spawnGeneration();
         drawHistory();
