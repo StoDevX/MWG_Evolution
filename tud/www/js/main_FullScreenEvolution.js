@@ -36,7 +36,7 @@ require([
     var NUM_CREATURES      = 12;
     var GENERATION_SECONDS = 25;      // simulated seconds per generation
     var STEP               = 1 / 60;  // physics step, seconds
-    var SPEEDS             = [1, 2, 4, 8]; // physics steps per rendered frame
+    var SPEEDS             = [1, 2, 4, 8, 16, 0]; // simulated seconds per real second; 0 is "Max"
     var HIT_THRESHOLD      = 5;       // ignore impulses smaller than this
     var WALL_BASE_HP       = 6000;
     var WALL_HP_GROWTH     = 1.45;    // each wall has this many times the HP of the last
@@ -272,7 +272,8 @@ require([
         // State
         // --------------------------------------------------------------------
 
-        var world, wall;
+        var worlds = [];   // one physics world per creature
+        var wall;          // the wall as drawn; every world has a copy of it
         var generator = new Generator(AUTO_MUTATION_RATE);
         var genomes   = generator.GenerateRandData(NUM_CREATURES); // first generation is random
         var lineage   = genomes.map(function (genome, i) {
@@ -448,8 +449,35 @@ require([
             return Math.sqrt(x*x + y*y);
         };
 
+        // Every creature gets a world of its own, with its own ground and its own
+        // copy of the wall. Creatures never touch each other, and keeping them apart
+        // spares Box2D from pairing up the parts of twelve creatures that pile up
+        // in one spot at the start of every generation.
+        var wallHit = function (contact, impulse) {
+            var a = contact.GetFixtureA().GetBody();
+            var b = contact.GetFixtureB().GetBody();
+            var hitter = a.isWall ? b : b.isWall ? a : null;
+            if (hitter === null || !(hitter.ID >= 0)) { return; }
+
+            var force = calcForce(impulse);
+            if (force <= HIT_THRESHOLD) { return; }
+
+            contact.GetWorldManifold(worldManifold);
+            var point = worldManifold.m_points[0];
+            var hit = hitsThisFrame[hitter.ID];
+            if (!hit) {
+                hit = hitsThisFrame[hitter.ID] = { force: 0, peak: 0, x: point.x, y: point.y };
+            }
+            hit.force += force;
+            if (force > hit.peak) {
+                hit.peak = force;
+                hit.x = point.x;
+                hit.y = point.y;
+            }
+        };
+
         var buildWorld = function () {
-            world = new b2World(new b2Vec2(0, 10), true);
+            var world = new b2World(new b2Vec2(0, 10), true);
 
             var fixDef = new b2FixtureDef;
             fixDef.shape = new b2PolygonShape;
@@ -478,44 +506,26 @@ require([
             bodyDef.position.Set(worldWidth + 1.8, worldHeight / 2);
             world.CreateBody(bodyDef).CreateFixture(fixDef);
 
-            wall = new Wall.BasicWall(worldWidth - worldWidth / 40, worldHeight / 2, worldWidth / 20, worldHeight);
-            wall.wallCollision = new Box2D.Dynamics.b2ContactListener;
-            wall.wallCollision.PostSolve = function (contact, impulse) {
-                var a = contact.GetFixtureA().GetBody();
-                var b = contact.GetFixtureB().GetBody();
-                var hitter = (a === wall.body) ? b : (b === wall.body) ? a : null;
-                if (hitter === null || !(hitter.ID >= 0)) { return; }
+            var worldWall = new Wall.BasicWall(worldWidth - worldWidth / 40, worldHeight / 2, worldWidth / 20, worldHeight);
+            worldWall.wallCollision = new Box2D.Dynamics.b2ContactListener;
+            worldWall.wallCollision.PostSolve = wallHit;
+            worldWall.addToWorld(world); // sets the contact listener
+            worldWall.body.isWall = true;
 
-                var force = calcForce(impulse);
-                if (force <= HIT_THRESHOLD) { return; }
-
-                contact.GetWorldManifold(worldManifold);
-                var point = worldManifold.m_points[0];
-                var hit = hitsThisFrame[hitter.ID];
-                if (!hit) {
-                    hit = hitsThisFrame[hitter.ID] = { force: 0, peak: 0, x: point.x, y: point.y };
-                }
-                hit.force += force;
-                if (force > hit.peak) {
-                    hit.peak = force;
-                    hit.x = point.x;
-                    hit.y = point.y;
-                }
-            };
-            world.SetContactListener(wall.wallCollision); // addToWorld sets it too
-            wall.addToWorld(world);
-
-            drawWall();
+            return { world: world, wall: worldWall };
         };
 
         var spawnGeneration = function () {
             creatures.forEach(function (creature) {
                 creature.bodyPartData().forEach(function (datum) {
-                    if (datum.graphics) { creatureLayer.removeChild(datum.graphics); }
+                    if (datum.graphics) {
+                        creatureLayer.removeChild(datum.graphics);
+                        // Frees the cached texture and its canvas, which PIXI would keep forever.
+                        if (datum.graphics.cacheAsBitmap) { datum.graphics.cacheAsBitmap = false; }
+                    }
                 });
             });
-            buildWorld();
-
+            worlds = [];
             creatures = [];
             damage = [];
             hitsThisFrame = [];
@@ -525,15 +535,20 @@ require([
                 genomes[i].torsoData.initialY = 10;
                 genomes[i].torsoData.initialAngle = 0;
 
-                var creature = new Creature.Scorpion(genomes[i], wall, -1, i);
+                var built = buildWorld();
+                worlds.push(built.world);
+                wall = built.wall;
+
+                var creature = new Creature.Scorpion(genomes[i], built.wall, -1, i);
                 creature.setColor(lineage[i].color);
-                creature.addToWorld(world);
+                creature.addToWorld(built.world);
                 creature.addToStage(creatureLayer, METER);
                 creature.parts = creature.bodyPartData();
                 creatures.push(creature);
                 damage.push(0);
             }
             simTime = 0;
+            drawWall();
             buildRows();
         };
 
@@ -687,6 +702,8 @@ require([
             return parents.slice(0, 3);
         };
 
+        var lastGenerationEnd = -Infinity; // real time, ms
+
         var endGeneration = function () {
             var order = ranking();
             var best = damage[order[0]];
@@ -701,7 +718,11 @@ require([
                 records[bredBy] = { score: best, name: Names.text(champion.name), generation: generation };
                 try { localStorage.setItem(RECORD_KEYS[bredBy], JSON.stringify(records[bredBy])); } catch (e) {}
             }
-            if (newRecord) { Sound.record(); } else { Sound.generation(); }
+            // At high speed generations fly by, so only records get a fanfare.
+            var now = performance.now();
+            var quiet = now - lastGenerationEnd < 2500 && !newRecord;
+            lastGenerationEnd = now;
+            if (newRecord) { Sound.record(); } else if (!quiet) { Sound.generation(); }
             drawHistory();
 
             var breedNow = mode === "auto" || autoLeft > 0;
@@ -711,11 +732,13 @@ require([
             }
 
             var change = previousBest > 0 ? Math.round((best / previousBest - 1) * 100) : null;
-            banner("<h2>Generation " + generation + " complete</h2>"
-                 + "<p>&#9819; <b style='color:" + hex(champion.color) + "'>" + Names.text(champion.name)
-                 + "</b> dealt " + formatNumber(best) + " damage"
-                 + (!change ? "" : " (" + (change >= 0 ? "+" : "") + change + "% vs last)") + "</p>"
-                 + (newRecord ? "<p class='record'>NEW " + bredBy.toUpperCase() + " RECORD!</p>" : ""), 2600);
+            if (!quiet) {
+                banner("<h2>Generation " + generation + " complete</h2>"
+                     + "<p>&#9819; <b style='color:" + hex(champion.color) + "'>" + Names.text(champion.name)
+                     + "</b> dealt " + formatNumber(best) + " damage"
+                     + (!change ? "" : " (" + (change >= 0 ? "+" : "") + change + "% vs last)") + "</p>"
+                     + (newRecord ? "<p class='record'>NEW " + bredBy.toUpperCase() + " RECORD!</p>" : ""), 2600);
+            }
 
             if (autoLeft > 0) {
                 autoLeft--;
@@ -1076,11 +1099,27 @@ require([
             rows = lineage.map(function (l, i) {
                 var row = document.createElement("li");
                 row.dataset.i = i;
+                row.innerHTML = "<span class='pos'></span><span class='swatch'></span><span class='name'></span>"
+                              + "<span class='tag'></span><span class='dmg'></span><span class='dmgbar'></span>";
+                row.cells = {};
+                ["pos", "swatch", "name", "tag", "dmg", "dmgbar"].forEach(function (cell, k) {
+                    row.cells[cell] = row.children[k];
+                });
+                row.cells.swatch.style.background = row.cells.dmgbar.style.background = hex(l.color);
                 ranks.appendChild(row);
                 return row;
             });
         };
+        // The HUD refreshes several times a second, so it only touches what changed.
+        var setText = function (el, text) {
+            if (el.textContent !== text) { el.textContent = text; }
+        };
+        var setStyle = function (el, property, value) {
+            if (el.style[property] !== value) { el.style[property] = value; }
+        };
+
         var nametags = [];
+        var nametagKey = "";
         var bannerTimer = null;
 
         var banner = function (html, duration) {
@@ -1123,14 +1162,12 @@ require([
                 ? formatNumber(hp) + " / " + formatNumber(info.hp) + " HP"
                 : "DESTROYED";
             if (hp < lastHP - 1) {
-                var bar = byId("hp-bar");
-                bar.classList.remove("hurt");
-                void bar.offsetWidth; // restart the animation
-                bar.classList.add("hurt");
+                byId("hp-bar").classList.add("hurt"); // removed again when the animation ends
             }
             lastHP = hp;
 
             byId("generation").textContent = generation;
+            setText(byId("speed-now"), SPEEDS[speedIndex] === 0 && !paused ? " · running at " + Math.round(achieved) + "x" : "");
             byId("time-left").textContent = Math.max(0, GENERATION_SECONDS - simTime).toFixed(1);
             byId("time-fill").style.width = (100 * (1 - simTime / GENERATION_SECONDS)) + "%";
 
@@ -1140,32 +1177,33 @@ require([
             var top = Math.max(1, damage[order[0]]);
             order.forEach(function (i, rank) {
                 var l = lineage[i];
-                var tag = l.origin === "survivor" ? "★" + l.streak
-                        : l.origin === "random" ? "new" : l.origin;
-                var html = "<span class='pos'>" + (rank + 1) + "</span>"
-                     + "<span class='swatch' style='background:" + hex(l.color) + "'></span>"
-                     + "<span class='name'>" + (rank === 0 && damage[i] > 0 ? "♛ " : "")
-                     + (favored.indexOf(i) >= 0 ? "♥ " : "") + Names.text(l.name) + "</span>"
-                     + "<span class='tag'>" + tag + "</span>"
-                     + "<span class='dmg'>" + formatNumber(damage[i]) + "</span>"
-                     + "<span class='dmgbar' style='width:" + (90 * damage[i] / top) + "%;background:" + hex(l.color) + "'></span>";
                 var row = rows[i];
-                if (row.html !== html) {
-                    row.innerHTML = row.html = html;
-                }
-                row.style.order = rank;
-                row.className = (favored.indexOf(i) >= 0 ? "favored" : "") + (rank >= 5 ? " low" : "");
+                var favorite = favored.indexOf(i) >= 0;
+                setText(row.cells.pos, String(rank + 1));
+                setText(row.cells.name, (rank === 0 && damage[i] > 0 ? "♛ " : "") + (favorite ? "♥ " : "") + Names.text(l.name));
+                setText(row.cells.tag, l.origin === "survivor" ? "★" + l.streak : l.origin === "random" ? "new" : l.origin);
+                setText(row.cells.dmg, formatNumber(damage[i]));
+                setStyle(row.cells.dmgbar, "width", (90 * damage[i] / top) + "%");
+                setStyle(row, "order", String(rank));
+                var className = (favorite ? "favored" : "") + (rank >= 5 ? " low" : "");
+                if (row.className !== className) { row.className = className; }
             });
 
             // Name tags over the top three and any favorites.
             var show = order.slice(0, 3).filter(function (i) { return damage[i] > 0; });
             favored.forEach(function (i) { if (show.indexOf(i) < 0) { show.push(i); } });
+            var labels = show.map(function (i) {
+                return (i === order[0] ? "♛ " : "") + (favored.indexOf(i) >= 0 ? "♥ " : "") + Names.text(lineage[i].name);
+            });
+            var key = show.join() + labels.join();
+            if (key === nametagKey) { return; }
+            nametagKey = key;
             nametags.forEach(function (el) { el.remove(); });
-            nametags = show.map(function (i) {
+            nametags = show.map(function (i, k) {
                 var el = document.createElement("div");
                 el.className = "nametag";
                 el.style.color = hex(lineage[i].color);
-                el.textContent = (i === order[0] ? "♛ " : "") + (favored.indexOf(i) >= 0 ? "♥ " : "") + Names.text(lineage[i].name);
+                el.textContent = labels[k];
                 el.dataset.i = i;
                 fxLayer.appendChild(el);
                 return el;
@@ -1247,9 +1285,18 @@ require([
             byId("btn-play").innerHTML = paused ? "&#9654;" : "&#10074;&#10074;";
         };
 
+        var speedLabel = function () {
+            return SPEEDS[speedIndex] ? SPEEDS[speedIndex] + "x" : "Max";
+        };
+
+        var setSpeed = function (index) {
+            speedIndex = index;
+            stepsOwed = 0;
+            byId("btn-speed").textContent = speedLabel();
+        };
+
         var cycleSpeed = function () {
-            speedIndex = (speedIndex + 1) % SPEEDS.length;
-            byId("btn-speed").textContent = SPEEDS[speedIndex] + "x";
+            setSpeed((speedIndex + 1) % SPEEDS.length);
         };
 
         var toggleSound = function () {
@@ -1275,6 +1322,7 @@ require([
         byId("btn-evolve").addEventListener("click", function () { if (started && !breederOpen()) { endGeneration(); } });
         byId("btn-mode").addEventListener("click", function () { if (!breederOpen()) { toggleMode(); } });
         byId("btn-speed").addEventListener("click", cycleSpeed);
+        byId("hp-bar").addEventListener("animationend", function () { byId("hp-bar").classList.remove("hurt"); });
         byId("btn-sound").addEventListener("click", toggleSound);
         byId("btn-help").addEventListener("click", showHelp);
         ranks.addEventListener("click", function (event) {
@@ -1315,6 +1363,7 @@ require([
                 case "s": cycleSpeed(); break;
                 case "m": toggleSound(); break;
                 case "h": showHelp(); break;
+                case "p": togglePerf(); break;
                 case "escape": byId("title-screen").classList.add("hidden"); break;
             }
         });
@@ -1323,33 +1372,107 @@ require([
         // Main loop
         // --------------------------------------------------------------------
 
-        var lastFrame = performance.now();
+        // The physics runs in fixed steps of STEP simulated seconds. Each frame owes
+        // as many steps as real time and the speed call for, so the game runs at the
+        // same pace at any refresh rate. Stepping stops when the frame's time budget
+        // is spent: a slow machine drops the steps it cannot afford instead of
+        // falling further behind, and "Max" steps for the whole budget, so a fast
+        // machine simply evolves faster.
+        // The budget grows while frames arrive at 60 per second and shrinks when
+        // they come late, since rendering and the browser need their time too.
+        // Where drawing alone is too slow for 60 fps (no GPU, say) the physics
+        // still gets a share: at least half as long as everything else.
+        var TARGET_FRAME  = 1000 / 60; // ms
+        var lastFrame     = performance.now();
+        var frameTime     = TARGET_FRAME; // smoothed ms between frames
+        var physicsTime   = 0;            // ms the last frame spent stepping
+        var budget        = 8;            // ms of physics allowed per frame
+        var stepsOwed     = 0;
+        var achieved      = 0;            // smoothed simulated seconds per real second
+
+        // Press P for a readout of where each frame's time goes.
+        var perf = { shown: false, since: performance.now(), frames: 0, steps: 0, physics: 0 };
+        var updatePerf = function (now, steps) {
+            if (paused) { // keep the last reading on screen, and start afresh on resume
+                perf.since = now;
+                perf.frames = perf.steps = perf.physics = 0;
+                return;
+            }
+            perf.frames++;
+            perf.steps += steps;
+            perf.physics += physicsTime;
+            var span = now - perf.since;
+            if (span < 1000) { return; }
+            if (perf.shown) {
+                byId("perf").textContent =
+                    (1000 * perf.frames / span).toFixed(0) + " fps · "
+                  + (perf.steps * STEP * 1000 / span).toFixed(1) + "x · "
+                  + (perf.steps ? (perf.physics / perf.steps).toFixed(3) : "–") + " ms/step · "
+                  + (perf.steps / perf.frames).toFixed(1) + " steps/frame\n"
+                  + "physics " + (perf.physics / perf.frames).toFixed(1) + " ms/frame · "
+                  + "rest " + ((span - perf.physics) / perf.frames).toFixed(1) + " ms/frame · "
+                  + "budget " + budget.toFixed(1) + " ms";
+            }
+            perf.since = now;
+            perf.frames = perf.steps = perf.physics = 0;
+        };
+        var togglePerf = function () {
+            perf.shown = !perf.shown;
+            byId("perf").hidden = !perf.shown;
+        };
+
+        var step = function () {
+            for (var w = 0; w < worlds.length; ++w) {
+                worlds[w].Step(STEP, 10, 10);
+                worlds[w].ClearForces();
+            }
+            simTime += STEP;
+            clock += STEP * 1000;
+            for (var c = 0; c < creatures.length; ++c) {
+                creatures[c].brain.think();
+            }
+            if (wallRebuildAt !== null && clock >= wallRebuildAt) {
+                rebuildWall();
+            }
+        };
 
         function animate() {
             var now = performance.now();
-            var dt = Math.min(0.05, (now - lastFrame) / 1000);
+            var elapsed = now - lastFrame;
+            var dt = Math.min(0.05, elapsed / 1000);
             lastFrame = now;
+            if (elapsed < 250) { // ignore pauses such as a hidden tab
+                frameTime += (elapsed - frameTime) * 0.2;
+                budget = frameTime > TARGET_FRAME * 1.2
+                       ? Math.max(budget * 0.9, (elapsed - physicsTime) / 2, 1)
+                       : Math.min(budget + 0.25, TARGET_FRAME - 2);
+            }
+            physicsTime = 0;
 
+            var steps = 0;
             if (!paused) {
-                for (var s = 0; s < SPEEDS[speedIndex]; ++s) {
-                    world.Step(STEP, 10, 10);
-                    world.ClearForces();
-                    simTime += STEP;
-                    clock += STEP * 1000;
-                    creatures.forEach(function (creature) {
-                        creature.brain.think();
-                    });
-                    if (wallRebuildAt !== null && clock >= wallRebuildAt) {
-                        rebuildWall();
-                    }
+                var speed = SPEEDS[speedIndex];
+                var deadline = now + budget;
+                stepsOwed += speed * Math.min(0.1, elapsed / 1000) / STEP;
+                // Owing half a step is enough, so jitter in frame timing does not
+                // turn one step per frame into zero then two.
+                while ((speed === 0 || stepsOwed > 0.5) && (steps === 0 || performance.now() < deadline)) {
+                    step();
+                    stepsOwed--;
+                    steps++;
                     if (simTime >= GENERATION_SECONDS) {
                         processHits();
                         endGeneration();
+                        stepsOwed = 0;
                         break;
                     }
                 }
+                physicsTime = performance.now() - now;
+                stepsOwed = speed === 0 ? 0 : Math.min(stepsOwed, 1);
+                achieved += (steps * STEP / Math.max(0.001, elapsed / 1000) - achieved) * 0.05;
                 processHits();
             }
+            updatePerf(now, steps);
 
             creatures.forEach(function (creature) {
                 creature.parts.forEach(function (datum) {
@@ -1423,7 +1546,14 @@ require([
                        , damage: damage.slice(), history: history.slice(), paused: paused };
             }
           , endGeneration: endGeneration
-          , setSpeed: function (i) { speedIndex = i; byId("btn-speed").textContent = SPEEDS[i] + "x"; }
+            // Runs the physics flat out and returns the average ms per step.
+          , bench: function (steps) {
+                var t = performance.now();
+                for (var i = 0; i < steps && simTime < GENERATION_SECONDS; ++i) { step(); }
+                return (performance.now() - t) / i;
+            }
+          , setSpeed: setSpeed
+          , loop: function () { return { speed: achieved, budget: budget, frameTime: frameTime }; }
         };
     }
 

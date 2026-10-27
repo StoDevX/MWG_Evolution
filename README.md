@@ -61,7 +61,8 @@ We "evolve" a car-like creature with a scorpion-like tail on the basis of the am
     * Click a creature, or its leaderboard row, to favor it. Up to three favored creatures are guaranteed to breed, ahead of the top scorers.
     * Press `B` (or the Auto button) for **Breeder mode**. At the end of each generation the game pauses on a card for every creature, showing its damage and readable traits (tail, muscle, body, wheels, drive, swing). Pick 1 to 3 parents, add up to 3 heavily mutated "mutant copies", or make the randomly generated "stranger" a parent to bring in fresh genes. Set the mutation rate from Gentle to Chaos, then breed. "Breed, then auto ×5" hands the next five generations back to the algorithm. Auto-bred and player-bred generations keep separate records.
     * Hits throw sparks and damage numbers, shake the screen and play synthesized sound effects.
-    * Keyboard: `Space` pause, `E` evolve now, `B` breeder mode, `S` cycle speed (1x, 2x, 4x, 8x), `M` sound, `H` help.
+    * Speed runs from 1x (real time) to 16x, and **Max** runs the physics as fast as the device allows while keeping the animation smooth. Each creature has its own physics world, so creatures never slow each other down. Every gene has limits, so creatures can't grow without end and slow the physics to a crawl. The game keeps the same pace on 60 Hz and 120 Hz screens.
+    * Keyboard: `Space` pause, `E` evolve now, `B` breeder mode, `S` cycle speed (1x, 2x, 4x, 8x, 16x, Max), `M` sound, `H` help.
 
 * Most documentation is inline with code, but some of it might be just a tiny bit out of date since we haven't gone through with a fine-tooth comb and updated it after our mad rush the night before our demo day. The demo code is messy. Don your hazmat suit before entering.
 

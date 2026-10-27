@@ -337,6 +337,13 @@ button:disabled { opacity: 0.4; cursor: default; }
   #breed-plan { width: 100%; }
 }
 
+/* The narrowest phones need tighter controls to fit all six buttons. */
+@media (max-width: 400px) {
+  #controls { left: 6px; gap: 4px; }
+  #controls button { padding-left: 9px; padding-right: 9px; }
+  #btn-play, #btn-speed { min-width: 0; }
+}
+
 /* When the screen is taller than the world, the world sits at the bottom and
    the HUD moves into the sky above it. */
 body.tall #leaderboard { top: 136px; bottom: auto; }
@@ -364,3 +371,21 @@ body.tall #leaderboard { top: 136px; bottom: auto; }
   #mutation-help { display: none; } /* each button's tooltip carries it instead */
   .breed-footer { padding-top: 6px; padding-bottom: 14px; }
 }
+
+/* Performance readout (P) */
+#perf {
+  position: fixed;
+  left: 8px;
+  bottom: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font: 12px/1.4 ui-monospace, Menlo, monospace;
+  white-space: pre;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+  z-index: 50;
+}
+#perf[hidden] { display: none; }
