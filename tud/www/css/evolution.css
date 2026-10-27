@@ -191,6 +191,8 @@ button.off { opacity: 0.5; }
 .overlay.hidden { display: none; }
 .overlay .card {
   max-width: 520px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   background: rgba(10, 14, 40, 0.92);
   border: 3px solid #ffe066;
   border-radius: 16px;
@@ -279,12 +281,18 @@ kbd {
 .parent-btn.on { background: #8a6d00; border-color: #ffe066; }
 .mutant-btn.on { background: #2b8a3e; border-color: #b2f2bb; }
 .card-status { font-size: 11px; opacity: 0.85; margin-top: 4px; min-height: 14px; }
+/* The footer sticks to the bottom of the scrolling card so Breed is always in reach. */
 .breed-footer {
+  position: sticky;
+  bottom: -18px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px 14px;
-  margin-top: 14px;
+  margin: 14px -20px -18px;
+  padding: 10px 20px 18px;
+  background: #0b0f2a;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
   font-size: 14px;
 }
 .mutation-control { display: grid; grid-template-columns: auto auto; align-items: center; gap: 4px 10px; }
@@ -300,10 +308,59 @@ kbd {
 #btn-breed { background: #c92a2a; border-color: #ffe066; }
 button:disabled { opacity: 0.4; cursor: default; }
 
+/* Phones held upright, and other narrow screens */
 @media (max-width: 760px) {
   #boss { top: 52px; width: calc(100vw - 20px); }
   #leaderboard { top: auto; bottom: 10px; width: 200px; }
   #ranks li.low { display: none; }
   #history { display: none; }
   .overlay h1 { font-size: 32px; }
+  .overlay .card { padding: 18px 18px; }
+
+  .overlay .card.breed { padding: 14px 12px; }
+  .breed h2 { font-size: 19px; }
+  .breed-help { font-size: 12px; }
+  #breed-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .breed-card { padding: 6px 7px; font-size: 11px; }
+  .card-head .name { font-size: 12px; }
+  .card-head .tag { display: none; }
+  .portrait { height: 76px; }
+  .card-dmg { font-size: 13px; margin-bottom: 4px; }
+  .breed-card dl { gap: 1px 5px; }
+  .card-actions { flex-direction: column; gap: 4px; }
+  .card-status { font-size: 10px; }
+  .breed-footer { margin: 10px -12px -14px; padding: 8px 12px 14px; bottom: -14px; gap: 8px; }
+  .segmented button { padding: 4px 8px; font-size: 12px; }
+  #mutation-help { font-size: 11px; }
+  .breed-actions { width: 100%; justify-content: stretch; }
+  .breed-actions button { flex: 1; }
+  #breed-plan { width: 100%; }
+}
+
+/* When the screen is taller than the world, the world sits at the bottom and
+   the HUD moves into the sky above it. */
+body.tall #leaderboard { top: 136px; bottom: auto; }
+
+/* Phones on their side, and other short screens */
+@media (max-height: 500px) {
+  #controls { top: 6px; left: 6px; gap: 4px; }
+  #controls button { padding: 4px 8px; font-size: 13px; }
+  #boss { top: 6px; left: auto; right: calc(5vw + 12px); transform: none; width: min(300px, 36vw); }
+  #boss-title { font-size: 14px; }
+  .bar { height: 16px; }
+  #hp-text { font-size: 11px; line-height: 12px; }
+  #gen-line { font-size: 11px; }
+  #leaderboard { top: 44px; bottom: auto; width: 190px; padding: 6px 8px; }
+  #ranks li { font-size: 12px; height: 18px; }
+  #ranks li.low { display: none; }
+  #history { display: none; }
+  .overlay { padding: 8px; }
+  .overlay .card { max-height: calc(100vh - 16px); padding: 14px 20px; }
+  .overlay h1 { font-size: 28px; }
+  .overlay .tagline { margin-bottom: 8px; }
+  .overlay li { margin-bottom: 2px; font-size: 14px; }
+  .overlay .card.breed { max-height: calc(100vh - 16px); }
+  .breed-help { display: none; }
+  #mutation-help { display: none; } /* each button's tooltip carries it instead */
+  .breed-footer { padding-top: 6px; padding-bottom: 14px; }
 }

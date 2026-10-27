@@ -242,19 +242,28 @@ require([
           ;
 
 /*
-        The world will be the full width of the screen and the full height of the screen.
-        The meter size in pixels will depend on the ratio of the screen height in pixels
-        to the fixed height of the world in meters.
+        The world is always 17 meters tall and at least 22 meters wide. On a wide
+        screen it fills the screen. On a tall one, like a phone held upright, it
+        is zoomed out to fit the width and sits at the bottom of the screen, and
+        the sky above holds the HUD. Otherwise a phone would get an arena only
+        8 meters wide, with creatures spawning on top of the wall.
 */
-        var pixelWidth  = window.innerWidth;
-        var pixelHeight = window.innerHeight;
-        var worldHeight = 17; // meters
-        var worldWidth  = worldHeight * pixelWidth / pixelHeight;
-        var METER       = pixelHeight / worldHeight; // pixels per meter
+        var MIN_WORLD_WIDTH = 22; // meters
+        var worldHeight = 17;     // meters
+        var pixelWidth, pixelHeight, worldWidth, METER, viewHeight, sceneTop, spawnX;
 
-        // Creatures spawn a third of the way across, but never on top of the wall
-        // on a narrow screen.
-        var spawnX = Math.min(10, worldWidth * 0.33);
+        var layout = function () {
+            pixelWidth  = window.innerWidth;
+            pixelHeight = window.innerHeight;
+            worldWidth  = Math.max(MIN_WORLD_WIDTH, worldHeight * pixelWidth / pixelHeight);
+            METER       = pixelWidth / worldWidth;     // pixels per meter
+            viewHeight  = worldHeight * METER;         // pixel height of the world
+            sceneTop    = pixelHeight - viewHeight;    // sky above the world, if any
+            // Creatures spawn a third of the way across, but no more than 10 m in.
+            spawnX = Math.min(10, worldWidth * 0.33);
+            document.body.classList.toggle("tall", sceneTop > 1);
+        };
+        layout();
 
         // --------------------------------------------------------------------
         // State
@@ -322,28 +331,30 @@ require([
         scene.addChild(fx);
 
         var drawBackdrop = function () {
+            if (backdrop.cacheAsBitmap) { backdrop.cacheAsBitmap = false; } // redrawn after a resize
+            backdrop.clear();
             // Distant hills
             var layers = [ { color: 0x3B4A8C, height: 0.45, bumps: 3 }
                          , { color: 0x2C356B, height: 0.3,  bumps: 5 } ];
             layers.forEach(function (layer, li) {
                 backdrop.beginFill(layer.color, 1);
-                backdrop.moveTo(-20, pixelHeight);
+                backdrop.moveTo(-20, viewHeight);
                 for (var x = -20; x <= pixelWidth + 20; x += 20) {
                     var t = x / pixelWidth * Math.PI * layer.bumps + li * 1.7;
-                    var y = pixelHeight * (1 - layer.height) + Math.sin(t) * pixelHeight * 0.06
-                          + Math.sin(t * 2.3) * pixelHeight * 0.025;
+                    var y = viewHeight * (1 - layer.height) + Math.sin(t) * viewHeight * 0.06
+                          + Math.sin(t * 2.3) * viewHeight * 0.025;
                     backdrop.lineTo(x, y);
                 }
-                backdrop.lineTo(pixelWidth + 20, pixelHeight);
+                backdrop.lineTo(pixelWidth + 20, viewHeight);
                 backdrop.endFill();
             });
 
-            // Ground: the top of the ground body sits 0.2 m above the bottom of the screen.
+            // Ground: the top of the ground body sits 0.2 m above the bottom of the world.
             backdrop.beginFill(0x3D2B1F, 1);
-            backdrop.drawRect(-20, pixelHeight - 0.2 * METER, pixelWidth + 40, 0.2 * METER + 20);
+            backdrop.drawRect(-20, viewHeight - 0.2 * METER, pixelWidth + 40, 0.2 * METER + 20);
             backdrop.endFill();
             backdrop.beginFill(0x5C940D, 1);
-            backdrop.drawRect(-20, pixelHeight - 0.2 * METER, pixelWidth + 40, 0.06 * METER);
+            backdrop.drawRect(-20, viewHeight - 0.2 * METER, pixelWidth + 40, 0.06 * METER);
             backdrop.endFill();
             backdrop.cacheAsBitmap = true;
         };
@@ -560,8 +571,8 @@ require([
                 p.vy += 900 * dt;
                 p.x += p.vx * dt;
                 p.y += p.vy * dt;
-                if (p.y > pixelHeight - 0.2 * METER) { // bounce on the ground
-                    p.y = pixelHeight - 0.2 * METER;
+                if (p.y > viewHeight - 0.2 * METER) { // bounce on the ground
+                    p.y = viewHeight - 0.2 * METER;
                     p.vy *= -0.35;
                     p.vx *= 0.7;
                 }
@@ -577,7 +588,7 @@ require([
             el.className = "popup";
             el.textContent = text;
             el.style.left = x + "px";
-            el.style.top = y + "px";
+            el.style.top = (y + sceneTop) + "px";
             el.style.color = color;
             el.style.fontSize = size + "px";
             el.addEventListener("animationend", function () { el.remove(); });
@@ -999,14 +1010,17 @@ require([
             return MUTATION_LEVELS[mutationLevel].rate;
         };
 
+        var mutationHelp = function (level) {
+            return "Each gene a child inherits has a " + Math.round(level.rate * 100)
+                 + "% chance to shift by about 10%. Parents and mutant copies are not affected.";
+        };
+
         var renderMutation = function () {
-            var level = MUTATION_LEVELS[mutationLevel];
             $("#mutation button").each(function (k) { $(this).toggleClass("on", k === mutationLevel); });
-            $("#mutation-help").text("Each gene a child inherits has a " + Math.round(level.rate * 100)
-                + "% chance to shift by about 10%. Parents and mutant copies are not affected.");
+            $("#mutation-help").text(mutationHelp(MUTATION_LEVELS[mutationLevel]));
         };
         $("#mutation").html(MUTATION_LEVELS.map(function (level) {
-            return "<button>" + level.name + "</button>";
+            return "<button title='" + mutationHelp(level) + "'>" + level.name + "</button>";
         }).join(""));
         renderMutation();
 
@@ -1349,7 +1363,7 @@ require([
             updateParticles(dt);
 
             scene.position.x = (Math.random() - 0.5) * shake;
-            scene.position.y = (Math.random() - 0.5) * shake;
+            scene.position.y = sceneTop + (Math.random() - 0.5) * shake;
             shake = shake < 0.5 ? 0 : shake * Math.pow(0.002, dt);
 
             updateHud(false);
@@ -1358,6 +1372,30 @@ require([
             renderer.render(stage);
             requestAnimFrame(animate);
         }
+
+        // Rotating a phone or resizing the window changes the world's size, so the
+        // current generation restarts to fit. The wall keeps its HP. While the
+        // breeding screen is open the world is rebuilt by breeding anyway.
+        var resizeTimer = null;
+        window.addEventListener("resize", function () {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function () {
+                if (window.innerWidth === pixelWidth && window.innerHeight === pixelHeight) { return; }
+                layout();
+                renderer.resize(pixelWidth, pixelHeight);
+                drawBackdrop();
+                particles = [];
+                if (breederOpen()) {
+                    drawPortraits(ranking().concat([STRANGER]));
+                    return;
+                }
+                spawnGeneration();
+                updateHud(true);
+                if (started) {
+                    banner("<h2>Screen changed</h2><p>Generation " + generation + " restarted to fit.</p>", 1800);
+                }
+            }, 250);
+        });
 
         spawnGeneration();
         drawHistory();
