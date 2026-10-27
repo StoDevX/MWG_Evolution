@@ -102,6 +102,17 @@ define([
   , addToStage: function (stage, METER) {
       this.torso.addToStage(stage, METER);
     }
+  , setColor: function (color) {
+      // Colors the torso, and the tail in a paler shade of the same color.
+      // Call this before addToStage.
+      var pale = 0;
+      for (var shift = 0; shift <= 16; shift += 8) {
+        var channel = (color >> shift) & 0xFF;
+        pale |= Math.round(channel + (255 - channel) * 0.55) << shift;
+      }
+      this.torso.color = color;
+      this.tail.vertebrae.forEach(function (vertebra) { vertebra.color = pale; });
+    }
   , bodyPartData: function () {
 
       var data = [

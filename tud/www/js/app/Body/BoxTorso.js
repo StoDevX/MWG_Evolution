@@ -110,6 +110,8 @@ define([ "app/Body/BodyPart"
       this.body = null;
       this.graphics = null;
 
+      this.color = 0x4B5320; // set before addToStage to recolor the body
+
       this.name = "BoxTorso";
     }
   , addToWorld: function (world) {
@@ -171,7 +173,7 @@ define([ "app/Body/BodyPart"
 
 
       // Base fill:
-      graphics.beginFill(0x4B5320, 1);
+      graphics.beginFill(this.color, 1);
       graphics.drawRect(0, 0, this.props.width * METER, this.props.height * METER);
       graphics.endFill();
 

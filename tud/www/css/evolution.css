@@ -1,0 +1,232 @@
+/* Styles for FullScreenEvolution.html: the HUD, banners and effects
+   drawn over the PIXI canvas. */
+
+body.evolution {
+  overflow: hidden;
+  background: linear-gradient(#1b2a6b 0%, #4d63c9 45%, #f29e6d 85%, #f7c873 100%);
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  color: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body.evolution canvas { display: block; }
+
+#hud, #fx-layer, #banner {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+#hud > * { pointer-events: auto; }
+
+button {
+  font: inherit;
+  color: #fff;
+  background: rgba(10, 14, 40, 0.75);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: bold;
+}
+button:hover { border-color: #fff; }
+button.off { opacity: 0.5; }
+
+#controls {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  gap: 6px;
+}
+#btn-play { min-width: 44px; }
+#btn-speed { min-width: 52px; }
+
+.panel-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+  margin-bottom: 6px;
+}
+.hint { text-transform: none; letter-spacing: 0; opacity: 0.75; float: right; }
+
+/* ---- Boss wall HP ---- */
+#boss {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(460px, 46vw);
+  text-align: center;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+#boss-title { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
+.bar {
+  position: relative;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.bar .fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  background: linear-gradient(#ff6b6b, #c92a2a);
+  transition: width 0.15s linear;
+}
+#hp-bar.hurt { animation: hurt 0.25s; }
+@keyframes hurt { 50% { border-color: #ffe066; transform: scale(1.03); } }
+#hp-text {
+  position: relative;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: bold;
+}
+.bar.thin { height: 6px; margin-top: 4px; border-width: 1px; }
+.bar.thin .fill { background: #ffe066; transition: none; }
+#gen-line { font-size: 13px; margin-top: 4px; }
+
+/* ---- Leaderboard ---- */
+#leaderboard, #history {
+  position: absolute;
+  left: 10px;
+  width: 240px;
+  background: rgba(10, 14, 40, 0.6);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+#leaderboard { top: 56px; }
+#ranks { display: flex; flex-direction: column; }
+#ranks li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  overflow: hidden;
+}
+#ranks li:hover { background: rgba(255, 255, 255, 0.12); }
+#ranks li.favored { background: rgba(255, 105, 180, 0.25); }
+#ranks .dmgbar {
+  position: absolute;
+  inset: auto auto 1px 4px;
+  height: 3px;
+  border-radius: 2px;
+  opacity: 0.8;
+}
+#ranks .pos { width: 16px; text-align: right; opacity: 0.7; }
+#ranks .swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+#ranks .name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ranks .tag { font-size: 10px; opacity: 0.7; }
+#ranks .dmg { font-variant-numeric: tabular-nums; font-weight: bold; }
+
+#history { bottom: 10px; }
+#history-chart { width: 240px; height: 80px; display: block; }
+.legend { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+.legend .key { display: inline-block; width: 10px; height: 3px; margin: 0 3px 2px 8px; vertical-align: middle; }
+.legend .key.best { background: #ffe066; margin-left: 0; }
+.legend .key.avg { background: #74c0fc; }
+
+/* ---- Effects ---- */
+.popup {
+  position: absolute;
+  font-weight: 900;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 0 3px #000, 0 2px 0 #000;
+  animation: float-up 0.9s ease-out forwards;
+}
+@keyframes float-up {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  15%  { opacity: 1; transform: translate(-50%, -80%) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -260%) scale(1); }
+}
+.nametag {
+  position: absolute;
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
+  text-shadow: 0 1px 2px #000, 0 0 2px #000;
+}
+
+#banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#banner .msg {
+  text-align: center;
+  background: rgba(10, 14, 40, 0.8);
+  border: 3px solid #ffe066;
+  border-radius: 14px;
+  padding: 14px 26px;
+  animation: pop-in 0.35s cubic-bezier(.2, 1.6, .4, 1);
+}
+#banner .msg.out { animation: pop-out 0.3s forwards; }
+#banner h2 { font-size: 30px; font-weight: 900; color: #ffe066; margin-bottom: 6px; }
+#banner p { font-size: 16px; line-height: 1.4; }
+#banner .record { color: #ff8787; font-weight: bold; }
+@keyframes pop-in { from { transform: scale(0.3); opacity: 0; } }
+@keyframes pop-out { to { transform: scale(0.8); opacity: 0; } }
+
+/* ---- Title screen ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 8, 25, 0.55);
+  padding: 16px;
+}
+.overlay.hidden { display: none; }
+.overlay .card {
+  max-width: 520px;
+  background: rgba(10, 14, 40, 0.92);
+  border: 3px solid #ffe066;
+  border-radius: 16px;
+  padding: 24px 28px;
+  line-height: 1.45;
+}
+.overlay h1 {
+  font-size: 44px;
+  font-weight: 900;
+  color: #ffe066;
+  text-shadow: 3px 3px 0 #c92a2a;
+  letter-spacing: 0.02em;
+}
+.overlay .tagline { font-size: 18px; margin: 4px 0 14px; opacity: 0.9; }
+.overlay ul { list-style: disc; padding-left: 20px; margin-bottom: 14px; }
+.overlay li { margin-bottom: 4px; }
+.overlay b { font-weight: bold; color: #ffe066; }
+.overlay .keys { font-size: 13px; opacity: 0.85; margin-bottom: 18px; }
+kbd {
+  font-family: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 5px;
+}
+#btn-start {
+  font-size: 20px;
+  padding: 10px 26px;
+  background: #c92a2a;
+  border-color: #ffe066;
+}
+
+@media (max-width: 760px) {
+  #boss { top: 52px; width: calc(100vw - 20px); }
+  #leaderboard { top: auto; bottom: 10px; width: 200px; }
+  #ranks li.low { display: none; }
+  #history { display: none; }
+  .overlay h1 { font-size: 32px; }
+}

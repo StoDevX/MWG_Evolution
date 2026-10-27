@@ -54,7 +54,13 @@ We "evolve" a car-like creature with a scorpion-like tail on the basis of the am
 
 * The code is in the "www" folder.
 
-* Open "FullScreenEvolution.html" for the most up to date demo. You need to press the "Play" button to start the simulation. The "Evolve" button can be used to trigger evolution prematurely and the third button can be used to toggle time acceleration.
+* Open "FullScreenEvolution.html" for the most up to date demo. Serve the `www` folder over HTTP (for example `python3 -m http.server` inside `tud/www`), since require.js cannot load modules from `file://` URLs in most browsers. The game plays like this:
+    * The wall is a boss with HP. Damage carries over between generations, and each destroyed wall is replaced by a tougher one (Cardboard, Plywood, Brick, and so on).
+    * Every creature has its own color and a name. Survivors keep theirs, children take half their name from each parent, and duplicate names get numbered (Chompzilla II).
+    * The leaderboard ranks creatures by damage dealt this generation. The chart tracks the best and average damage per generation, and the all-time record is saved in the browser.
+    * Click a creature, or its leaderboard row, to favor it. Up to three favored creatures are guaranteed to breed, ahead of the top scorers.
+    * Hits throw sparks and damage numbers, shake the screen and play synthesized sound effects.
+    * Keyboard: `Space` pause, `E` evolve now, `S` cycle speed (1x, 2x, 4x, 8x), `M` sound, `H` help.
 
 * Most documentation is inline with code, but some of it might be just a tiny bit out of date since we haven't gone through with a fine-tooth comb and updated it after our mad rush the night before our demo day. The demo code is messy. Don your hazmat suit before entering.
 

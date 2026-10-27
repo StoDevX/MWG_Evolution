@@ -38,6 +38,8 @@ define([ "app/Body/BodyPart"
       this.body = null;
       this.graphics = null;
 
+      this.color = 0xFFFFFF; // set before addToStage to recolor the vertebra
+
       var b2Vec2 = Box2D.Common.Math.b2Vec2;
       var attachments = [
         {
@@ -114,7 +116,7 @@ define([ "app/Body/BodyPart"
         ;
 
       graphics.lineStyle(1, 0x000000, 1);
-      graphics.beginFill(0xFFFFFF, 1);
+      graphics.beginFill(this.color, 1);
       graphics.moveTo( topLeftX, topLeftY );
       graphics.lineTo( topTipX, topTipY );
       graphics.lineTo( topRightX, topRightY );
