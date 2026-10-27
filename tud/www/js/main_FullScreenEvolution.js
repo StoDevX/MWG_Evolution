@@ -729,7 +729,9 @@ require([
             var newLineage = [];
             parents.forEach(function (p, i) {
                 newGenomes[i] = genomes[p];
-                newLineage[i] = { name: lineage[p].name, color: lineage[p].color, origin: "survivor", streak: lineage[p].streak + 1 };
+                // A stranger gives up its stranger color for one of the team's.
+                var color = p === STRANGER ? undefined : lineage[p].color;
+                newLineage[i] = { name: lineage[p].name, color: color, origin: "survivor", streak: lineage[p].streak + 1 };
             });
             for (var k = parents.length; k < 9; ++k) {
                 // Alternate which parent leads, so siblings get both name halves.
@@ -754,11 +756,11 @@ require([
             }
 
             // Survivors keep their colors; everyone else takes what is left.
-            var used = newLineage.slice(0, parents.length).map(function (l) { return l.color; });
+            var used = newLineage.map(function (l) { return l.color; });
             var free = PALETTE.filter(function (c) { return used.indexOf(c) < 0; });
-            for (var j = parents.length; j < NUM_CREATURES; ++j) {
-                newLineage[j].color = free.shift();
-            }
+            newLineage.forEach(function (l) {
+                if (l.color === undefined) { l.color = free.shift(); }
+            });
 
             Names.number(newLineage.map(function (l) { return l.name; }));
 
@@ -807,25 +809,44 @@ require([
 
         var breederPicks = { parents: [], mutants: [] };
 
+        // The stranger is a brand-new random creature offered on the breeding
+        // screen, so the player can bring fresh genes straight into the
+        // bloodline. While the screen is open it lives one past the end of
+        // genomes and lineage, so breed() treats it like any other parent.
+        var STRANGER = NUM_CREATURES;
+        var STRANGER_COLOR = 0xFCC419;
+
+        var newStranger = function () {
+            genomes[STRANGER] = generator.GenerateRandData(1)[0];
+            lineage[STRANGER] = { name: Names.random(), color: STRANGER_COLOR, origin: "stranger", streak: 0 };
+        };
+
         var openBreeder = function (newRecord) {
             setPaused(true);
             breederPicks = { parents: defaultParents(), mutants: [] };
+            newStranger();
+            $("#breed-gen").text(generation);
+            $("#breed-record").text(newRecord ? "New " + bredBy + " record!" : "");
+            renderCards();
+            $("#breed-screen").removeClass("hidden");
+            drawPortraits(ranking().concat([STRANGER]));
+        };
 
-            var order = ranking();
+        var renderCards = function () {
+            var order = ranking().concat([STRANGER]);
             var maxima = TRAITS.map(function (trait) {
                 return Math.max.apply(null, genomes.map(trait.value)) || 1;
             });
-            $("#breed-gen").text(generation);
-            $("#breed-record").text(newRecord ? "New " + bredBy + " record!" : "");
             $("#breed-cards").html(order.map(function (i, rank) {
                 var l = lineage[i], g = genomes[i];
+                var stranger = i === STRANGER;
                 var tag = l.origin === "survivor" ? "★" + l.streak
                         : l.origin === "random" ? "new" : l.origin;
-                return "<div class='breed-card' data-i='" + i + "' style='--c:" + hex(l.color) + "'>"
-                     + "<div class='card-head'><span class='pos'>#" + (rank + 1) + "</span>"
+                return "<div class='breed-card" + (stranger ? " stranger" : "") + "' data-i='" + i + "' style='--c:" + hex(l.color) + "'>"
+                     + "<div class='card-head'><span class='pos'>" + (stranger ? "?" : "#" + (rank + 1)) + "</span>"
                      + "<span class='name'>" + Names.text(l.name) + "</span><span class='tag'>" + tag + "</span></div>"
                      + "<canvas class='portrait'></canvas>"
-                     + "<div class='card-dmg'>" + formatNumber(damage[i]) + " dmg</div>"
+                     + "<div class='card-dmg'>" + (stranger ? "Untested" : formatNumber(damage[i]) + " dmg") + "</div>"
                      + "<dl>" + TRAITS.map(function (trait, t) {
                            var v = trait.value(g);
                            return "<dt>" + trait.label + "</dt><dd><span class='trait-bar' style='width:"
@@ -833,14 +854,15 @@ require([
                        }).join("") + "</dl>"
                      + "<div class='card-actions'>"
                      + "<button class='parent-btn'></button>"
-                     + "<button class='mutant-btn' title='Adds a copy of this creature to the next generation with every gene"
-                     + " randomly changed, by about 30%. It takes a newcomer&apos;s place. Up to 3.'></button></div>"
+                     + (stranger
+                        ? "<button class='reroll-btn' title='Replace the stranger with a different random creature'>↻ Another</button>"
+                        : "<button class='mutant-btn' title='Adds a copy of this creature to the next generation with every gene"
+                          + " randomly changed, by about 30%. It takes a newcomer&apos;s place. Up to 3.'></button>")
+                     + "</div>"
                      + "<div class='card-status'></div>"
                      + "</div>";
             }).join(""));
             renderBreederPicks();
-            $("#breed-screen").removeClass("hidden");
-            drawPortraits(order);
         };
 
         // Draws every creature in its resting pose, standing on the ground line.
@@ -953,7 +975,8 @@ require([
                        .text(isMutant ? "✓ Mutant copy" : "+ Mutant copy")
                        .prop("disabled", !isMutant && breederPicks.mutants.length >= 3);
                 $(this).find(".card-status").html(
-                    (p >= 0 ? "<div>Survives and breeds with the other parents.</div>" : "")
+                    (i === STRANGER && p < 0 ? "<div>A brand-new random creature. Make it a parent to bring fresh genes into the bloodline.</div>" : "")
+                  + (p >= 0 ? "<div>Survives and breeds with the other parents.</div>" : "")
                   + (isMutant ? "<div>A scrambled copy joins the next generation.</div>" : ""));
             });
             var n = breederPicks.parents.length;
@@ -1000,6 +1023,12 @@ require([
         $("#breed-cards").on("click", ".breed-card", function () {
             toggleIn(breederPicks.parents, +this.dataset.i, 3);
             renderBreederPicks();
+        });
+        $("#breed-cards").on("click", ".reroll-btn", function (event) {
+            event.stopPropagation();
+            newStranger();
+            renderCards();
+            drawPortraits(ranking().concat([STRANGER]));
         });
         $("#breed-cards").on("click", ".mutant-btn", function (event) {
             event.stopPropagation();
