@@ -34,7 +34,6 @@ define([
         TODO: Eventually we add a targetMovementPattern that describes a manipulation of the targetPosition
         and a patternRate or something that determines the rate the pattern is cycled through
       */
-      var d = new Date();
       var distanceDendrite = function ( dist ) {
         if (dist > this.props.distanceThreshold) { // Not yet in range
           this.phase = 0; // motor speeds differ depending on if we are in the rest (0) or attack (1) phase
@@ -43,7 +42,7 @@ define([
         else {
           // toggle target position if enough time has passed
           this.phase = 1;
-          var time = d.getTime();
+          var time = TailNeuron.now();
           if (time - this.lastTime > this.props.timePerPosition) {
             var t = this.props.targetPosition;
             this.props.targetPosition = (t === 0) ? 1 : 0;
@@ -152,6 +151,11 @@ define([
 
     }
   });
+
+  // The clock used to time the attack pattern, in ms. It reads the wall clock by
+  // default, but a simulation can replace it with its own clock so attacks keep
+  // pace with the physics when time is accelerated.
+  TailNeuron.now = function () { return Date.now(); };
 
   return TailNeuron;
 });

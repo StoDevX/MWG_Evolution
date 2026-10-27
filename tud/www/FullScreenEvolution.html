@@ -1,13 +1,62 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Full Screen Demo</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+        <title>Scorpion Smash</title>
         <!-- data-main attribute tells require.js to load
              scripts/main.js after require.js loads. -->
         <script data-main="js/main_FullScreenEvolution.js" src="js/require.js"></script>
         <link rel="stylesheet" type="text/css" href="css/reset.css">
         <link rel="stylesheet" type="text/css" href="css/app.css">
+        <link rel="stylesheet" type="text/css" href="css/evolution.css">
     </head>
-    <body>
+    <body class="evolution">
+        <div id="fx-layer"></div>
+
+        <div id="hud">
+            <div id="controls">
+                <button id="btn-play" title="Play / pause (Space)">&#9654;</button>
+                <button id="btn-evolve" title="End this generation now (E)">Evolve</button>
+                <button id="btn-speed" title="Simulation speed (S)">1x</button>
+                <button id="btn-sound" title="Sound on / off (M)">&#9835;</button>
+                <button id="btn-help" title="How to play (H)">?</button>
+            </div>
+
+            <div id="boss">
+                <div id="boss-title">Level <span id="level">1</span> &middot; <span id="wall-name">Cardboard Wall</span></div>
+                <div class="bar" id="hp-bar"><div class="fill" id="hp-fill"></div><span id="hp-text"></span></div>
+                <div class="bar thin" id="time-bar"><div class="fill" id="time-fill"></div></div>
+                <div id="gen-line">Generation <span id="generation">1</span> &middot; <span id="time-left">25.0</span>s left</div>
+            </div>
+
+            <div id="leaderboard">
+                <div class="panel-title">Leaderboard <span class="hint">click to favor &hearts;</span></div>
+                <ol id="ranks"></ol>
+            </div>
+
+            <div id="history">
+                <div class="panel-title">Evolution <span class="hint" id="record"></span></div>
+                <canvas id="history-chart" width="240" height="80"></canvas>
+                <div class="legend"><span class="key best"></span>best <span class="key avg"></span>average</div>
+            </div>
+        </div>
+
+        <div id="banner"></div>
+
+        <div id="title-screen" class="overlay">
+            <div class="card">
+                <h1>Scorpion Smash</h1>
+                <p class="tagline">Breed tail-whipping monsters. Smash the wall.</p>
+                <ul>
+                    <li>Twelve creatures get 25 seconds to batter the wall with their tails.</li>
+                    <li>The three hardest hitters survive and breed. Their children inherit body, brain and name.</li>
+                    <li>Grind the wall's HP to zero to break it. Every wall is tougher than the last.</li>
+                    <li><b>Click a creature</b> (or its leaderboard row) to <b>favor</b> it &hearts; and force it to breed.</li>
+                </ul>
+                <p class="keys"><kbd>Space</kbd> pause &nbsp; <kbd>E</kbd> evolve now &nbsp; <kbd>S</kbd> speed &nbsp; <kbd>M</kbd> sound &nbsp; <kbd>H</kbd> help</p>
+                <button id="btn-start">Start smashing</button>
+            </div>
+        </div>
     </body>
 </html>
