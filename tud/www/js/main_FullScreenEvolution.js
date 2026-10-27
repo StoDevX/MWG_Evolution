@@ -12,17 +12,13 @@ requirejs.config({
                 //module value.
                 exports: 'Box2D'
         }
-    },
-
-    paths: {
-        jquery: "https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min"
     }
 
 });
 
 "use strict";
 require([
-      "jquery"
+      "lib/ready"
     , "lib/Box2dWeb_dev"
     , "lib/pixi"
     , "lib/Utils"
@@ -31,7 +27,7 @@ require([
     , "app/Creature"
     , "app/Wall"
     , "app/Generation/Generator"
-    ], function ($, Box2D, PIXI, Utils, Mind, Body, Creature, Wall, Generator) {
+    ], function (ready, Box2D, PIXI, Utils, Mind, Body, Creature, Wall, Generator) {
 
     // ------------------------------------------------------------------------
     // Tuning
@@ -264,6 +260,13 @@ require([
             document.body.classList.toggle("tall", sceneTop > 1);
         };
         layout();
+
+        // --------------------------------------------------------------------
+        // Page helpers
+        // --------------------------------------------------------------------
+
+        var byId = function (id) { return document.getElementById(id); };
+        var all = function (selector) { return Array.prototype.slice.call(document.querySelectorAll(selector)); };
 
         // --------------------------------------------------------------------
         // State
@@ -836,10 +839,10 @@ require([
             setPaused(true);
             breederPicks = { parents: defaultParents(), mutants: [] };
             newStranger();
-            $("#breed-gen").text(generation);
-            $("#breed-record").text(newRecord ? "New " + bredBy + " record!" : "");
+            byId("breed-gen").textContent = generation;
+            byId("breed-record").textContent = newRecord ? "New " + bredBy + " record!" : "";
             renderCards();
-            $("#breed-screen").removeClass("hidden");
+            byId("breed-screen").classList.remove("hidden");
             drawPortraits(ranking().concat([STRANGER]));
         };
 
@@ -848,7 +851,7 @@ require([
             var maxima = TRAITS.map(function (trait) {
                 return Math.max.apply(null, genomes.map(trait.value)) || 1;
             });
-            $("#breed-cards").html(order.map(function (i, rank) {
+            byId("breed-cards").innerHTML = order.map(function (i, rank) {
                 var l = lineage[i], g = genomes[i];
                 var stranger = i === STRANGER;
                 var tag = l.origin === "survivor" ? "★" + l.streak
@@ -872,7 +875,7 @@ require([
                      + "</div>"
                      + "<div class='card-status'></div>"
                      + "</div>";
-            }).join(""));
+            }).join("");
             renderBreederPicks();
         };
 
@@ -900,8 +903,8 @@ require([
                 };
             });
 
-            $("#breed-cards canvas.portrait").each(function (k) {
-                var canvas = this, s = shapes[k];
+            all("#breed-cards canvas.portrait").forEach(function (canvas, k) {
+                var s = shapes[k];
                 var ratio = window.devicePixelRatio || 1;
                 var cw = canvas.clientWidth, ch = canvas.clientHeight;
                 canvas.width = cw * ratio;
@@ -971,33 +974,38 @@ require([
             });
         };
 
-        var breederOpen = function () { return !$("#breed-screen").hasClass("hidden"); };
+        var breederOpen = function () { return !byId("breed-screen").classList.contains("hidden"); };
 
         var renderBreederPicks = function () {
-            $("#breed-cards .breed-card").each(function () {
-                var i = +this.dataset.i;
+            all("#breed-cards .breed-card").forEach(function (card) {
+                var i = +card.dataset.i;
                 var p = breederPicks.parents.indexOf(i);
                 var isMutant = breederPicks.mutants.indexOf(i) >= 0;
-                $(this).toggleClass("parent", p >= 0).toggleClass("mutant", isMutant);
-                $(this).find(".parent-btn").toggleClass("on", p >= 0)
-                       .text(p >= 0 ? "✓ Parent" : "Make parent")
-                       .prop("disabled", p < 0 && breederPicks.parents.length >= 3);
-                $(this).find(".mutant-btn").toggleClass("on", isMutant)
-                       .text(isMutant ? "✓ Mutant copy" : "+ Mutant copy")
-                       .prop("disabled", !isMutant && breederPicks.mutants.length >= 3);
-                $(this).find(".card-status").html(
+                card.classList.toggle("parent", p >= 0);
+                card.classList.toggle("mutant", isMutant);
+                var parentButton = card.querySelector(".parent-btn");
+                parentButton.classList.toggle("on", p >= 0);
+                parentButton.textContent = p >= 0 ? "✓ Parent" : "Make parent";
+                parentButton.disabled = p < 0 && breederPicks.parents.length >= 3;
+                var mutantButton = card.querySelector(".mutant-btn"); // the stranger has none
+                if (mutantButton) {
+                    mutantButton.classList.toggle("on", isMutant);
+                    mutantButton.textContent = isMutant ? "✓ Mutant copy" : "+ Mutant copy";
+                    mutantButton.disabled = !isMutant && breederPicks.mutants.length >= 3;
+                }
+                card.querySelector(".card-status").innerHTML =
                     (i === STRANGER && p < 0 ? "<div>A brand-new random creature. Make it a parent to bring fresh genes into the bloodline.</div>" : "")
                   + (p >= 0 ? "<div>Survives and breeds with the other parents.</div>" : "")
-                  + (isMutant ? "<div>A scrambled copy joins the next generation.</div>" : ""));
+                  + (isMutant ? "<div>A scrambled copy joins the next generation.</div>" : "");
             });
             var n = breederPicks.parents.length;
             var children = 9 - n, mutants = breederPicks.mutants.length;
-            $("#breed-plan").text(n === 0
+            byId("breed-plan").textContent = n === 0
                 ? "Pick at least one parent."
                 : n + " survivor" + (n === 1 ? "" : "s") + ", " + children + " children"
                   + (mutants ? ", " + mutants + " mutant" + (mutants === 1 ? "" : "s") : "")
-                  + ", " + (3 - mutants) + " newcomer" + (3 - mutants === 1 ? "" : "s"));
-            $("#btn-breed, #btn-auto5").prop("disabled", n === 0);
+                  + ", " + (3 - mutants) + " newcomer" + (3 - mutants === 1 ? "" : "s");
+            byId("btn-breed").disabled = byId("btn-auto5").disabled = n === 0;
         };
 
         var toggleIn = function (list, i, max) {
@@ -1016,58 +1024,59 @@ require([
         };
 
         var renderMutation = function () {
-            $("#mutation button").each(function (k) { $(this).toggleClass("on", k === mutationLevel); });
-            $("#mutation-help").text(mutationHelp(MUTATION_LEVELS[mutationLevel]));
+            all("#mutation button").forEach(function (button, k) { button.classList.toggle("on", k === mutationLevel); });
+            byId("mutation-help").textContent = mutationHelp(MUTATION_LEVELS[mutationLevel]);
         };
-        $("#mutation").html(MUTATION_LEVELS.map(function (level) {
-            return "<button title='" + mutationHelp(level) + "'>" + level.name + "</button>";
-        }).join(""));
+        byId("mutation").innerHTML = MUTATION_LEVELS.map(function (level, k) {
+            return "<button data-level='" + k + "' title='" + mutationHelp(level) + "'>" + level.name + "</button>";
+        }).join("");
         renderMutation();
 
         var closeBreeder = function (autoGenerations) {
             if (breederPicks.parents.length === 0) { return; }
-            $("#breed-screen").addClass("hidden");
+            byId("breed-screen").classList.add("hidden");
             autoLeft = autoGenerations;
             updateModeButton();
             breed(breederPicks.parents, breederPicks.mutants, mutationRate(), "breeder");
             setPaused(false);
         };
 
-        // Clicking anywhere on a card, or its Parent button, toggles it as a parent.
-        $("#breed-cards").on("click", ".breed-card", function () {
-            toggleIn(breederPicks.parents, +this.dataset.i, 3);
+        // One listener handles every card. Clicking anywhere on a card, or its
+        // Parent button, toggles it as a parent; the other buttons do their own thing.
+        byId("breed-cards").addEventListener("click", function (event) {
+            var card = event.target.closest(".breed-card");
+            if (!card) { return; }
+            if (event.target.closest(".reroll-btn")) {
+                newStranger();
+                renderCards();
+                drawPortraits(ranking().concat([STRANGER]));
+                return;
+            }
+            var list = event.target.closest(".mutant-btn") ? breederPicks.mutants : breederPicks.parents;
+            toggleIn(list, +card.dataset.i, 3);
             renderBreederPicks();
         });
-        $("#breed-cards").on("click", ".reroll-btn", function (event) {
-            event.stopPropagation();
-            newStranger();
-            renderCards();
-            drawPortraits(ranking().concat([STRANGER]));
-        });
-        $("#breed-cards").on("click", ".mutant-btn", function (event) {
-            event.stopPropagation();
-            toggleIn(breederPicks.mutants, +$(this).closest(".breed-card")[0].dataset.i, 3);
-            renderBreederPicks();
-        });
-        $("#mutation").on("click", "button", function () {
-            mutationLevel = $(this).index();
+        byId("mutation").addEventListener("click", function (event) {
+            var button = event.target.closest("button");
+            if (!button) { return; }
+            mutationLevel = +button.dataset.level;
             renderMutation();
         });
-        $("#btn-breed").on("click", function () { closeBreeder(0); });
-        $("#btn-auto5").on("click", function () { closeBreeder(5); });
+        byId("btn-breed").addEventListener("click", function () { closeBreeder(0); });
+        byId("btn-auto5").addEventListener("click", function () { closeBreeder(5); });
 
         // --------------------------------------------------------------------
         // HUD
         // --------------------------------------------------------------------
 
-        var $ranks = $("#ranks");
+        var ranks = byId("ranks");
         var rows = [];
         var buildRows = function () {
-            $ranks.empty();
+            ranks.innerHTML = "";
             rows = lineage.map(function (l, i) {
                 var row = document.createElement("li");
                 row.dataset.i = i;
-                $ranks[0].appendChild(row);
+                ranks.appendChild(row);
                 return row;
             });
         };
@@ -1075,12 +1084,12 @@ require([
         var bannerTimer = null;
 
         var banner = function (html, duration) {
-            var $banner = $("#banner");
+            var el = byId("banner");
             clearTimeout(bannerTimer);
-            $banner.html("<div class='msg'>" + html + "</div>");
+            el.innerHTML = "<div class='msg'>" + html + "</div>";
             bannerTimer = setTimeout(function () {
-                $banner.find(".msg").addClass("out");
-                bannerTimer = setTimeout(function () { $banner.empty(); }, 300);
+                el.firstChild.classList.add("out");
+                bannerTimer = setTimeout(function () { el.innerHTML = ""; }, 300);
             }, duration);
         };
 
@@ -1107,22 +1116,23 @@ require([
 
             var info = wallInfo(level);
             var hp = wallRebuildAt === null ? Math.max(0, wallHP) : 0;
-            $("#level").text(level);
-            $("#wall-name").text(info.name);
-            $("#hp-fill").css("width", (100 * hp / info.hp) + "%");
-            $("#hp-text").text(wallRebuildAt === null
+            byId("level").textContent = level;
+            byId("wall-name").textContent = info.name;
+            byId("hp-fill").style.width = (100 * hp / info.hp) + "%";
+            byId("hp-text").textContent = wallRebuildAt === null
                 ? formatNumber(hp) + " / " + formatNumber(info.hp) + " HP"
-                : "DESTROYED");
+                : "DESTROYED";
             if (hp < lastHP - 1) {
-                var $bar = $("#hp-bar").removeClass("hurt");
-                void $bar[0].offsetWidth; // restart the animation
-                $bar.addClass("hurt");
+                var bar = byId("hp-bar");
+                bar.classList.remove("hurt");
+                void bar.offsetWidth; // restart the animation
+                bar.classList.add("hurt");
             }
             lastHP = hp;
 
-            $("#generation").text(generation);
-            $("#time-left").text(Math.max(0, GENERATION_SECONDS - simTime).toFixed(1));
-            $("#time-fill").css("width", (100 * (1 - simTime / GENERATION_SECONDS)) + "%");
+            byId("generation").textContent = generation;
+            byId("time-left").textContent = Math.max(0, GENERATION_SECONDS - simTime).toFixed(1);
+            byId("time-fill").style.width = (100 * (1 - simTime / GENERATION_SECONDS)) + "%";
 
             // Rows stay in place and are reordered with CSS, so a click never
             // lands on a row that was just replaced.
@@ -1181,9 +1191,9 @@ require([
             ctx.clearRect(0, 0, 240, 80);
 
             var record = records[mode];
-            $("#record").text(record.score > 0
+            byId("record").textContent = record.score > 0
                 ? mode + " record " + formatNumber(record.score) + " by " + record.name
-                : "");
+                : "";
 
             if (history.length === 0) {
                 ctx.fillStyle = "rgba(255,255,255,0.6)";
@@ -1217,8 +1227,9 @@ require([
         // --------------------------------------------------------------------
 
         var updateModeButton = function () {
-            $("#btn-mode").text(mode === "auto" ? "Auto" : autoLeft > 0 ? "Breeder (auto " + autoLeft + ")" : "Breeder")
-                          .toggleClass("breeder", mode === "breeder");
+            var button = byId("btn-mode");
+            button.textContent = mode === "auto" ? "Auto" : autoLeft > 0 ? "Breeder (auto " + autoLeft + ")" : "Breeder";
+            button.classList.toggle("breeder", mode === "breeder");
         };
 
         var toggleMode = function () {
@@ -1233,40 +1244,43 @@ require([
 
         var setPaused = function (value) {
             paused = value;
-            $("#btn-play").html(paused ? "&#9654;" : "&#10074;&#10074;");
+            byId("btn-play").innerHTML = paused ? "&#9654;" : "&#10074;&#10074;";
         };
 
         var cycleSpeed = function () {
             speedIndex = (speedIndex + 1) % SPEEDS.length;
-            $("#btn-speed").text(SPEEDS[speedIndex] + "x");
+            byId("btn-speed").textContent = SPEEDS[speedIndex] + "x";
         };
 
         var toggleSound = function () {
             Sound.muted = !Sound.muted;
-            $("#btn-sound").toggleClass("off", Sound.muted);
+            byId("btn-sound").classList.toggle("off", Sound.muted);
         };
 
         var start = function () {
             Sound.start();
             started = true;
-            $("#title-screen").addClass("hidden");
+            byId("title-screen").classList.add("hidden");
             setPaused(breederOpen()); // stay paused while the player is choosing parents
         };
 
         var showHelp = function () {
             setPaused(true);
-            $("#btn-start").text(started ? "Back to smashing" : "Start smashing");
-            $("#title-screen").removeClass("hidden");
+            byId("btn-start").textContent = started ? "Back to smashing" : "Start smashing";
+            byId("title-screen").classList.remove("hidden");
         };
 
-        $("#btn-start").on("click", start);
-        $("#btn-play").on("click", function () { if (!breederOpen()) { setPaused(!paused); } });
-        $("#btn-evolve").on("click", function () { if (started && !breederOpen()) { endGeneration(); } });
-        $("#btn-mode").on("click", function () { if (!breederOpen()) { toggleMode(); } });
-        $("#btn-speed").on("click", cycleSpeed);
-        $("#btn-sound").on("click", toggleSound);
-        $("#btn-help").on("click", showHelp);
-        $ranks.on("click", "li", function () { toggleFavor(+this.dataset.i); });
+        byId("btn-start").addEventListener("click", start);
+        byId("btn-play").addEventListener("click", function () { if (!breederOpen()) { setPaused(!paused); } });
+        byId("btn-evolve").addEventListener("click", function () { if (started && !breederOpen()) { endGeneration(); } });
+        byId("btn-mode").addEventListener("click", function () { if (!breederOpen()) { toggleMode(); } });
+        byId("btn-speed").addEventListener("click", cycleSpeed);
+        byId("btn-sound").addEventListener("click", toggleSound);
+        byId("btn-help").addEventListener("click", showHelp);
+        ranks.addEventListener("click", function (event) {
+            var row = event.target.closest("li");
+            if (row) { toggleFavor(+row.dataset.i); }
+        });
 
         // Clicking a creature favors it. The topmost creature under the pointer wins.
         renderer.view.addEventListener("click", function (event) {
@@ -1285,7 +1299,7 @@ require([
             }
         });
 
-        $(document).on("keydown", function (event) {
+        document.addEventListener("keydown", function (event) {
             if (!started) {
                 if (event.key === " " || event.key === "Enter") { event.preventDefault(); start(); }
                 return;
@@ -1301,7 +1315,7 @@ require([
                 case "s": cycleSpeed(); break;
                 case "m": toggleSound(); break;
                 case "h": showHelp(); break;
-                case "escape": $("#title-screen").addClass("hidden"); break;
+                case "escape": byId("title-screen").classList.add("hidden"); break;
             }
         });
 
@@ -1409,11 +1423,11 @@ require([
                        , damage: damage.slice(), history: history.slice(), paused: paused };
             }
           , endGeneration: endGeneration
-          , setSpeed: function (i) { speedIndex = i; $("#btn-speed").text(SPEEDS[i] + "x"); }
+          , setSpeed: function (i) { speedIndex = i; byId("btn-speed").textContent = SPEEDS[i] + "x"; }
         };
     }
 
-    $( document ).ready(function(){
+    ready(function(){
         init();
     });
 

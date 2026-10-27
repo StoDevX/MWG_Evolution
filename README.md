@@ -75,4 +75,6 @@ We "evolve" a car-like creature with a scorpion-like tail on the basis of the am
 
 * We use PIXI.js for rendering.
 
+* Every library the pages use (Box2dWeb, PIXI.js and RequireJS) is checked in under `www/js/lib` and `www/js`, and nothing is loaded from the internet, so everything works offline.
+
 * This is an Apache Cordova project, which makes it easy to build for mobile deployment.
