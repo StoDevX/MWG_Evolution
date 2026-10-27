@@ -1393,6 +1393,11 @@ require([
         // Press P for a readout of where each frame's time goes.
         var perf = { shown: false, since: performance.now(), frames: 0, steps: 0, physics: 0 };
         var updatePerf = function (now, steps) {
+            if (paused) { // keep the last reading on screen, and start afresh on resume
+                perf.since = now;
+                perf.frames = perf.steps = perf.physics = 0;
+                return;
+            }
             perf.frames++;
             perf.steps += steps;
             perf.physics += physicsTime;
