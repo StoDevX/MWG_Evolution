@@ -383,7 +383,9 @@ body.tall #leaderboard { top: 136px; bottom: auto; }
   color: #fff;
   font: 12px/1.4 ui-monospace, Menlo, monospace;
   white-space: pre;
-  pointer-events: none;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
   z-index: 50;
 }
 #perf[hidden] { display: none; }
