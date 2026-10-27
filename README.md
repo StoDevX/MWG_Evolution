@@ -59,8 +59,9 @@ We "evolve" a car-like creature with a scorpion-like tail on the basis of the am
     * Every creature has its own color and a name. Survivors keep theirs, children take half their name from each parent, and duplicate names get numbered (Chompzilla II).
     * The leaderboard ranks creatures by damage dealt this generation. The chart tracks the best and average damage per generation, and the all-time record is saved in the browser.
     * Click a creature, or its leaderboard row, to favor it. Up to three favored creatures are guaranteed to breed, ahead of the top scorers.
+    * Press `B` (or the Auto button) for **Breeder mode**. At the end of each generation the game pauses on a card for every creature, showing its damage and readable traits (tail, muscle, body, wheels, drive, swing). Pick 1 to 3 parents, add up to 3 heavily mutated "mutants", set the mutation rate from Gentle to Chaos, then breed. "Breed, then auto ×5" hands the next five generations back to the algorithm. Auto-bred and player-bred generations keep separate records.
     * Hits throw sparks and damage numbers, shake the screen and play synthesized sound effects.
-    * Keyboard: `Space` pause, `E` evolve now, `S` cycle speed (1x, 2x, 4x, 8x), `M` sound, `H` help.
+    * Keyboard: `Space` pause, `E` evolve now, `B` breeder mode, `S` cycle speed (1x, 2x, 4x, 8x), `M` sound, `H` help.
 
 * Most documentation is inline with code, but some of it might be just a tiny bit out of date since we haven't gone through with a fine-tooth comb and updated it after our mad rush the night before our demo day. The demo code is messy. Don your hazmat suit before entering.
 

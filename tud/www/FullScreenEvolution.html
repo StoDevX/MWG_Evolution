@@ -18,6 +18,7 @@
             <div id="controls">
                 <button id="btn-play" title="Play / pause (Space)">&#9654;</button>
                 <button id="btn-evolve" title="End this generation now (E)">Evolve</button>
+                <button id="btn-mode" title="Auto: top scorers breed. Breeder: you pick the parents (B)">Auto</button>
                 <button id="btn-speed" title="Simulation speed (S)">1x</button>
                 <button id="btn-sound" title="Sound on / off (M)">&#9835;</button>
                 <button id="btn-help" title="How to play (H)">?</button>
@@ -44,6 +45,21 @@
 
         <div id="banner"></div>
 
+        <div id="breed-screen" class="overlay hidden">
+            <div class="card breed">
+                <h2>Generation <span id="breed-gen"></span>: pick the parents <span id="breed-record"></span></h2>
+                <p class="breed-help">Click up to 3 cards to make them parents. Parents survive and breed with each other. Add up to 3 mutants: wildly mutated copies that take the newcomers' places.</p>
+                <div id="breed-cards"></div>
+                <div class="breed-footer">
+                    <label>Mutation <input type="range" id="mutation" min="0" max="3" step="1" value="1"> <span id="mutation-label">Normal</span></label>
+                    <span id="breed-plan"></span>
+                    <span class="spacer"></span>
+                    <button id="btn-auto5" title="Breed these picks, then let auto mode run the next 5 generations">Breed, then auto &times;5</button>
+                    <button id="btn-breed" title="Enter">Breed next generation</button>
+                </div>
+            </div>
+        </div>
+
         <div id="title-screen" class="overlay">
             <div class="card">
                 <h1>Scorpion Smash</h1>
@@ -53,8 +69,9 @@
                     <li>The three hardest hitters survive and breed. Their children inherit body, brain and name.</li>
                     <li>Grind the wall's HP to zero to break it. Every wall is tougher than the last.</li>
                     <li><b>Click a creature</b> (or its leaderboard row) to <b>favor</b> it &hearts; and force it to breed.</li>
+                    <li>Switch to <b>Breeder mode</b> to pick the parents yourself after every generation, with a mutation dial and mutants. Can you beat the algorithm?</li>
                 </ul>
-                <p class="keys"><kbd>Space</kbd> pause &nbsp; <kbd>E</kbd> evolve now &nbsp; <kbd>S</kbd> speed &nbsp; <kbd>M</kbd> sound &nbsp; <kbd>H</kbd> help</p>
+                <p class="keys"><kbd>Space</kbd> pause &nbsp; <kbd>E</kbd> evolve now &nbsp; <kbd>S</kbd> speed &nbsp; <kbd>B</kbd> breeder mode &nbsp; <kbd>M</kbd> sound &nbsp; <kbd>H</kbd> help</p>
                 <button id="btn-start">Start smashing</button>
             </div>
         </div>

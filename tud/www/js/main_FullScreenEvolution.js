@@ -44,7 +44,10 @@ require([
     var HIT_THRESHOLD      = 5;       // ignore impulses smaller than this
     var WALL_BASE_HP       = 6000;
     var WALL_HP_GROWTH     = 1.45;    // each wall has this many times the HP of the last
-    var RECORD_KEY         = "scorpionSmash.record";
+    var AUTO_MUTATION_RATE = 0.5;
+    // Records are kept apart for generations bred automatically and by the player.
+    // The auto key predates breeder mode, so it keeps its old name.
+    var RECORD_KEYS        = { auto: "scorpionSmash.record", breeder: "scorpionSmash.record.breeder" };
 
     // One color per creature slot. Survivors keep their color across generations.
     var PALETTE = [
@@ -258,7 +261,7 @@ require([
         // --------------------------------------------------------------------
 
         var world, wall;
-        var generator = new Generator(0.5);
+        var generator = new Generator(AUTO_MUTATION_RATE);
         var genomes   = generator.GenerateRandData(NUM_CREATURES); // first generation is random
         var lineage   = genomes.map(function (genome, i) {
             return { name: Names.random(), color: PALETTE[i], origin: "random", streak: 0 };
@@ -277,10 +280,17 @@ require([
         var wallSince   = 1;      // generation this wall appeared in
 
         var history = []; // { best, avg } per generation
-        var record  = { score: 0, name: "", generation: 0 };
-        try {
-            record = JSON.parse(localStorage.getItem(RECORD_KEY)) || record;
-        } catch (e) {}
+        var records = {};
+        Object.keys(RECORD_KEYS).forEach(function (key) {
+            records[key] = { score: 0, name: "", generation: 0 };
+            try {
+                records[key] = JSON.parse(localStorage.getItem(RECORD_KEYS[key])) || records[key];
+            } catch (e) {}
+        });
+
+        var mode     = "auto";  // "auto", or "breeder" where the player picks parents
+        var autoLeft = 0;       // generations breeder mode leaves to auto before asking again
+        var bredBy   = "auto";  // who bred the generation on screen; its score counts toward that record
 
         var paused     = true;
         var started    = false;
@@ -654,6 +664,15 @@ require([
                          .sort(function (a, b) { return damage[b] - damage[a]; });
         };
 
+        // Favored creatures first, then the hardest hitters.
+        var defaultParents = function () {
+            var parents = favored.slice().sort(function (a, b) { return damage[b] - damage[a]; });
+            ranking().forEach(function (i) {
+                if (parents.indexOf(i) < 0) { parents.push(i); }
+            });
+            return parents.slice(0, 3);
+        };
+
         var endGeneration = function () {
             var order = ranking();
             var best = damage[order[0]];
@@ -662,10 +681,19 @@ require([
             history.push({ best: best, avg: avg });
 
             var champion = lineage[order[0]];
+            var record = records[bredBy];
             var newRecord = best > record.score;
             if (newRecord) {
-                record = { score: best, name: Names.text(champion.name), generation: generation };
-                try { localStorage.setItem(RECORD_KEY, JSON.stringify(record)); } catch (e) {}
+                records[bredBy] = { score: best, name: Names.text(champion.name), generation: generation };
+                try { localStorage.setItem(RECORD_KEYS[bredBy], JSON.stringify(records[bredBy])); } catch (e) {}
+            }
+            if (newRecord) { Sound.record(); } else { Sound.generation(); }
+            drawHistory();
+
+            var breedNow = mode === "auto" || autoLeft > 0;
+            if (!breedNow) {
+                openBreeder(newRecord);
+                return;
             }
 
             var change = previousBest > 0 ? Math.round((best / previousBest - 1) * 100) : null;
@@ -673,37 +701,60 @@ require([
                  + "<p>&#9819; <b style='color:" + hex(champion.color) + "'>" + Names.text(champion.name)
                  + "</b> dealt " + formatNumber(best) + " damage"
                  + (!change ? "" : " (" + (change >= 0 ? "+" : "") + change + "% vs last)") + "</p>"
-                 + (newRecord ? "<p class='record'>NEW ALL-TIME RECORD!</p>" : ""), 2600);
-            if (newRecord) { Sound.record(); } else { Sound.generation(); }
+                 + (newRecord ? "<p class='record'>NEW " + bredBy.toUpperCase() + " RECORD!</p>" : ""), 2600);
 
-            // Parents: favored creatures first, then the hardest hitters.
-            var parents = favored.slice().sort(function (a, b) { return damage[b] - damage[a]; });
-            order.forEach(function (i) {
-                if (parents.indexOf(i) < 0) { parents.push(i); }
+            if (autoLeft > 0) {
+                autoLeft--;
+                updateModeButton();
+            }
+            breed(defaultParents(), [], AUTO_MUTATION_RATE, "auto");
+        };
+
+        // Builds the next generation:
+        //   the parents (1 to 3) survive unchanged,
+        //   children of every pairing of parents fill the slots up to 9,
+        //   each mutant index gets a heavily mutated copy,
+        //   and newcomers fill whatever is left.
+        var breed = function (parents, mutants, mutationRate, by) {
+            generator.mutationRate = mutationRate;
+
+            var pairs = [];
+            parents.forEach(function (a, i) {
+                parents.forEach(function (b, j) {
+                    if (i < j || parents.length === 1) { pairs.push([a, b]); }
+                });
             });
-            parents = parents.slice(0, 3);
 
-            // Same breeding plan as before: 3 survivors, 6 children, 3 newcomers.
-            var pairs = [[0, 1], [0, 2], [1, 2], [0, 1], [0, 2], [1, 2]];
             var newGenomes = generator.GenerateRandData(NUM_CREATURES);
             var newLineage = [];
             parents.forEach(function (p, i) {
                 newGenomes[i] = genomes[p];
                 newLineage[i] = { name: lineage[p].name, color: lineage[p].color, origin: "survivor", streak: lineage[p].streak + 1 };
             });
-            pairs.forEach(function (pair, k) {
-                var a = parents[pair[0]], b = parents[pair[1]];
-                newGenomes[3 + k] = generator.GenerateData(genomes[a], genomes[b]);
-                newLineage[3 + k] = { name: Names.child(lineage[a].name, lineage[b].name), origin: "child", streak: 0 };
+            for (var k = parents.length; k < 9; ++k) {
+                // Alternate which parent leads, so siblings get both name halves.
+                var pair = pairs[(k - parents.length) % pairs.length];
+                var a = pair[k % 2], b = pair[1 - k % 2];
+                newGenomes[k] = generator.GenerateData(genomes[a], genomes[b]);
+                newLineage[k] = { name: Names.child(lineage[a].name, lineage[b].name), origin: "child", streak: 0 };
+            }
+            mutants.forEach(function (m, k) {
+                generator.mutationRate = 1;
+                var genome = genomes[m];
+                for (var round = 0; round < 3; ++round) { // every gene moves, three times over
+                    genome = generator.GenerateData(genome, genome);
+                }
+                newGenomes[9 + k] = genome;
+                newLineage[9 + k] = { name: { head: lineage[m].name.head, tail: Names.pick(Names.tails) }, origin: "mutant", streak: 0 };
             });
-            for (var i = 9; i < NUM_CREATURES; ++i) {
+            for (var i = 9 + mutants.length; i < NUM_CREATURES; ++i) {
                 newLineage[i] = { name: Names.random(), origin: "random", streak: 0 };
             }
 
             // Survivors keep their colors; everyone else takes what is left.
-            var used = newLineage.slice(0, 3).map(function (l) { return l.color; });
+            var used = newLineage.slice(0, parents.length).map(function (l) { return l.color; });
             var free = PALETTE.filter(function (c) { return used.indexOf(c) < 0; });
-            for (var j = 3; j < NUM_CREATURES; ++j) {
+            for (var j = parents.length; j < NUM_CREATURES; ++j) {
                 newLineage[j].color = free.shift();
             }
 
@@ -711,12 +762,129 @@ require([
 
             genomes = newGenomes;
             lineage = newLineage;
+            bredBy = by;
             favored = [];
             generation++;
             spawnGeneration();
             drawHistory();
             updateHud(true);
         };
+
+        // --------------------------------------------------------------------
+        // Breeder mode: the player picks the parents at the end of a generation.
+        // --------------------------------------------------------------------
+
+        var MUTATION_LEVELS = [ [0.15, "Gentle"], [0.5, "Normal"], [0.8, "Wild"], [1, "Chaos"] ];
+
+        // Readable traits, computed from a genome. Bars on the cards compare
+        // each trait across the generation.
+        var TRAITS = [
+            { label: "Tail", value: function (g) {
+                  var length = 0;
+                  for (var i = 0; i < g.tailData.numVertebrae; ++i) {
+                      length += g.tailData.rootHeight * Math.pow(g.tailData.heightReductionFactor, i);
+                  }
+                  return length;
+              }, text: function (g, v) { return Math.ceil(g.tailData.numVertebrae) + " seg, " + v.toFixed(1) + " m"; } }
+          , { label: "Muscle", value: function (g) { return g.tailData.rootMaxTorque; }
+              , text: function (g, v) { return Math.round(v / 1000) + "k"; } }
+          , { label: "Body", value: function (g) { return g.torsoData.width * g.torsoData.height; }
+              , text: function (g) { return g.torsoData.width.toFixed(1) + " × " + g.torsoData.height.toFixed(1) + " m"; } }
+          , { label: "Wheels", value: function (g) { return g.leftWheelData.radius + g.rightWheelData.radius; }
+              , text: function (g) { return g.leftWheelData.radius.toFixed(1) + " / " + g.rightWheelData.radius.toFixed(1) + " m"; } }
+          , { label: "Drive", value: function (g) { return (g.leftWheelJointData.motorSpeed + g.rightWheelJointData.motorSpeed) / 2; }
+              , text: function (g, v) { return v.toFixed(1); } }
+          , { label: "Swing", value: function (g) { return g.tailNeuronData.maxMotorSpeeds[1]; }
+              , text: function (g, v) { return v.toFixed(1); } }
+        ];
+
+        var breederPicks = { parents: [], mutants: [] };
+
+        var openBreeder = function (newRecord) {
+            setPaused(true);
+            breederPicks = { parents: defaultParents(), mutants: [] };
+
+            var order = ranking();
+            var maxima = TRAITS.map(function (trait) {
+                return Math.max.apply(null, genomes.map(trait.value)) || 1;
+            });
+            $("#breed-gen").text(generation);
+            $("#breed-record").text(newRecord ? "New " + bredBy + " record!" : "");
+            $("#breed-cards").html(order.map(function (i, rank) {
+                var l = lineage[i], g = genomes[i];
+                var tag = l.origin === "survivor" ? "★" + l.streak
+                        : l.origin === "random" ? "new" : l.origin;
+                return "<div class='breed-card' data-i='" + i + "' style='--c:" + hex(l.color) + "'>"
+                     + "<div class='card-head'><span class='pos'>#" + (rank + 1) + "</span>"
+                     + "<span class='name'>" + Names.text(l.name) + "</span><span class='tag'>" + tag + "</span></div>"
+                     + "<div class='card-dmg'>" + formatNumber(damage[i]) + " dmg</div>"
+                     + "<dl>" + TRAITS.map(function (trait, t) {
+                           var v = trait.value(g);
+                           return "<dt>" + trait.label + "</dt><dd><span class='trait-bar' style='width:"
+                                + Math.round(100 * v / maxima[t]) + "%'></span>" + trait.text(g, v) + "</dd>";
+                       }).join("") + "</dl>"
+                     + "<div class='card-actions'><span class='badge'></span>"
+                     + "<button class='mutant-btn' title='Add a heavily mutated copy to the next generation'>☢ Mutant</button></div>"
+                     + "</div>";
+            }).join(""));
+            renderBreederPicks();
+            $("#breed-screen").removeClass("hidden");
+        };
+
+        var breederOpen = function () { return !$("#breed-screen").hasClass("hidden"); };
+
+        var renderBreederPicks = function () {
+            $("#breed-cards .breed-card").each(function () {
+                var i = +this.dataset.i;
+                var p = breederPicks.parents.indexOf(i);
+                var isMutant = breederPicks.mutants.indexOf(i) >= 0;
+                $(this).toggleClass("parent", p >= 0).toggleClass("mutant", isMutant);
+                $(this).find(".badge").text(p >= 0 ? "Parent " + (p + 1) : "");
+                $(this).find(".mutant-btn").toggleClass("on", isMutant);
+            });
+            var n = breederPicks.parents.length;
+            var children = 9 - n, mutants = breederPicks.mutants.length;
+            $("#breed-plan").text(n === 0
+                ? "Pick at least one parent."
+                : n + " survivor" + (n === 1 ? "" : "s") + ", " + children + " children"
+                  + (mutants ? ", " + mutants + " mutant" + (mutants === 1 ? "" : "s") : "")
+                  + ", " + (3 - mutants) + " newcomer" + (3 - mutants === 1 ? "" : "s"));
+            $("#btn-breed, #btn-auto5").prop("disabled", n === 0);
+        };
+
+        var toggleIn = function (list, i, max) {
+            var at = list.indexOf(i);
+            if (at >= 0) { list.splice(at, 1); }
+            else if (list.length < max) { list.push(i); }
+        };
+
+        var mutationRate = function () {
+            return MUTATION_LEVELS[+$("#mutation").val()][0];
+        };
+
+        var closeBreeder = function (autoGenerations) {
+            if (breederPicks.parents.length === 0) { return; }
+            $("#breed-screen").addClass("hidden");
+            autoLeft = autoGenerations;
+            updateModeButton();
+            breed(breederPicks.parents, breederPicks.mutants, mutationRate(), "breeder");
+            setPaused(false);
+        };
+
+        $("#breed-cards").on("click", ".breed-card", function () {
+            toggleIn(breederPicks.parents, +this.dataset.i, 3);
+            renderBreederPicks();
+        });
+        $("#breed-cards").on("click", ".mutant-btn", function (event) {
+            event.stopPropagation();
+            toggleIn(breederPicks.mutants, +$(this).closest(".breed-card")[0].dataset.i, 3);
+            renderBreederPicks();
+        });
+        $("#mutation").on("input", function () {
+            $("#mutation-label").text(MUTATION_LEVELS[+this.value][1]);
+        });
+        $("#btn-breed").on("click", function () { closeBreeder(0); });
+        $("#btn-auto5").on("click", function () { closeBreeder(5); });
 
         // --------------------------------------------------------------------
         // HUD
@@ -793,7 +961,7 @@ require([
             order.forEach(function (i, rank) {
                 var l = lineage[i];
                 var tag = l.origin === "survivor" ? "★" + l.streak
-                        : l.origin === "child" ? "child" : "new";
+                        : l.origin === "random" ? "new" : l.origin;
                 var html = "<span class='pos'>" + (rank + 1) + "</span>"
                      + "<span class='swatch' style='background:" + hex(l.color) + "'></span>"
                      + "<span class='name'>" + (rank === 0 && damage[i] > 0 ? "♛ " : "")
@@ -842,8 +1010,9 @@ require([
             ctx.scale(ratio, ratio);
             ctx.clearRect(0, 0, 240, 80);
 
+            var record = records[mode];
             $("#record").text(record.score > 0
-                ? "record " + formatNumber(record.score) + " by " + record.name
+                ? mode + " record " + formatNumber(record.score) + " by " + record.name
                 : "");
 
             if (history.length === 0) {
@@ -877,6 +1046,21 @@ require([
         // Controls
         // --------------------------------------------------------------------
 
+        var updateModeButton = function () {
+            $("#btn-mode").text(mode === "auto" ? "Auto" : autoLeft > 0 ? "Breeder (auto " + autoLeft + ")" : "Breeder")
+                          .toggleClass("breeder", mode === "breeder");
+        };
+
+        var toggleMode = function () {
+            mode = mode === "auto" ? "breeder" : "auto";
+            autoLeft = 0;
+            updateModeButton();
+            drawHistory();
+            banner(mode === "auto"
+                ? "<h2>Auto mode</h2><p>The top scorers breed on their own.</p>"
+                : "<h2>Breeder mode</h2><p>You choose the parents when this generation ends.</p>", 1800);
+        };
+
         var setPaused = function (value) {
             paused = value;
             $("#btn-play").html(paused ? "&#9654;" : "&#10074;&#10074;");
@@ -896,7 +1080,7 @@ require([
             Sound.start();
             started = true;
             $("#title-screen").addClass("hidden");
-            setPaused(false);
+            setPaused(breederOpen()); // stay paused while the player is choosing parents
         };
 
         var showHelp = function () {
@@ -906,8 +1090,9 @@ require([
         };
 
         $("#btn-start").on("click", start);
-        $("#btn-play").on("click", function () { setPaused(!paused); });
-        $("#btn-evolve").on("click", function () { if (started) { endGeneration(); } });
+        $("#btn-play").on("click", function () { if (!breederOpen()) { setPaused(!paused); } });
+        $("#btn-evolve").on("click", function () { if (started && !breederOpen()) { endGeneration(); } });
+        $("#btn-mode").on("click", function () { if (!breederOpen()) { toggleMode(); } });
         $("#btn-speed").on("click", cycleSpeed);
         $("#btn-sound").on("click", toggleSound);
         $("#btn-help").on("click", showHelp);
@@ -935,7 +1120,12 @@ require([
                 if (event.key === " " || event.key === "Enter") { event.preventDefault(); start(); }
                 return;
             }
+            if (breederOpen()) {
+                if (event.key === "Enter") { closeBreeder(0); }
+                return;
+            }
             switch (event.key.toLowerCase()) {
+                case "b": toggleMode(); break;
                 case " ": event.preventDefault(); setPaused(!paused); break;
                 case "e": endGeneration(); break;
                 case "s": cycleSpeed(); break;
