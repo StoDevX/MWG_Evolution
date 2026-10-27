@@ -44,7 +44,7 @@ require([
     var HIT_THRESHOLD      = 5;       // ignore impulses smaller than this
     var WALL_BASE_HP       = 6000;
     var WALL_HP_GROWTH     = 1.45;    // each wall has this many times the HP of the last
-    var RECORD_KEY         = "scorpionSmash.record";
+    var RECORD_KEY         = "mwgEvolution.record";
 
     // One color per creature slot. Survivors keep their color across generations.
     var PALETTE = [
@@ -1019,7 +1019,7 @@ require([
         requestAnimFrame(animate);
 
         // Debugging and testing hooks.
-        window.scorpionSmash = {
+        window.mwgEvolution = {
             state: function () {
                 return { generation: generation, level: level, wallHP: wallHP, simTime: simTime
                        , damage: damage.slice(), history: history.slice(), paused: paused };
