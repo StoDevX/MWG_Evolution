@@ -1363,6 +1363,7 @@ require([
                 case "s": cycleSpeed(); break;
                 case "m": toggleSound(); break;
                 case "h": showHelp(); break;
+                case "p": togglePerf(); break;
                 case "escape": byId("title-screen").classList.add("hidden"); break;
             }
         });
@@ -1388,6 +1389,32 @@ require([
         var budget        = 8;            // ms of physics allowed per frame
         var stepsOwed     = 0;
         var achieved      = 0;            // smoothed simulated seconds per real second
+
+        // Press P for a readout of where each frame's time goes.
+        var perf = { shown: false, since: performance.now(), frames: 0, steps: 0, physics: 0 };
+        var updatePerf = function (now, steps) {
+            perf.frames++;
+            perf.steps += steps;
+            perf.physics += physicsTime;
+            var span = now - perf.since;
+            if (span < 1000) { return; }
+            if (perf.shown) {
+                byId("perf").textContent =
+                    (1000 * perf.frames / span).toFixed(0) + " fps · "
+                  + (perf.steps * STEP * 1000 / span).toFixed(1) + "x · "
+                  + (perf.steps ? (perf.physics / perf.steps).toFixed(3) : "–") + " ms/step · "
+                  + (perf.steps / perf.frames).toFixed(1) + " steps/frame\n"
+                  + "physics " + (perf.physics / perf.frames).toFixed(1) + " ms/frame · "
+                  + "rest " + ((span - perf.physics) / perf.frames).toFixed(1) + " ms/frame · "
+                  + "budget " + budget.toFixed(1) + " ms";
+            }
+            perf.since = now;
+            perf.frames = perf.steps = perf.physics = 0;
+        };
+        var togglePerf = function () {
+            perf.shown = !perf.shown;
+            byId("perf").hidden = !perf.shown;
+        };
 
         var step = function () {
             for (var w = 0; w < worlds.length; ++w) {
@@ -1417,10 +1444,10 @@ require([
             }
             physicsTime = 0;
 
+            var steps = 0;
             if (!paused) {
                 var speed = SPEEDS[speedIndex];
                 var deadline = now + budget;
-                var steps = 0;
                 stepsOwed += speed * Math.min(0.1, elapsed / 1000) / STEP;
                 // Owing half a step is enough, so jitter in frame timing does not
                 // turn one step per frame into zero then two.
@@ -1440,6 +1467,7 @@ require([
                 achieved += (steps * STEP / Math.max(0.001, elapsed / 1000) - achieved) * 0.05;
                 processHits();
             }
+            updatePerf(now, steps);
 
             creatures.forEach(function (creature) {
                 creature.parts.forEach(function (datum) {
